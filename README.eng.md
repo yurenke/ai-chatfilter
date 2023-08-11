@@ -1,9 +1,8 @@
-# AI-Chatting-Filter
+# AI-Chat-Filter (EN/Multi-lingual)
 
 ## Installation Requirements for System (Centos ver)
 
-### 1. python3.7 / pip3 and some dependencies
-> for Redhat Linux (centos)
+### 1. python3.7 / pip3 and some dependencies (AI VMs)
 
 Install Python3.7 and pip3
 
@@ -28,34 +27,49 @@ sudo yum -y install python-devel python3-devel python-Levenshtein
 ```
 
 
-### 2. postgresql 10.11.x
-> for Redhat Linux (centos)
+### 2. postgresql 10.11.x (DB VMs)
+> for master and slave DB VMs  
+may be different machines from the AI VMs
 ```Shell
 sudo rpm -Uvh https://yum.postgresql.org/10/redhat/rhel-7-x86_64/pgdg-centos10-10-2.noarch.rpm
 sudo yum -y install postgresql10-server postgresql10
 sudo yum -y install postgresql-contrib postgresql-libs
 sudo /usr/pgsql-10/bin/postgresql-10-setup initdb
 
+sudo ln -s /usr/pgsql-10/bin/psql /usr/bin/psql --force
+sudo ln -s /usr/pgsql-10/bin/pg_dump /usr/bin/pg_dump --force
+sudo ln -s /usr/pgsql-10/bin/pg_restore /usr/bin/pg_restore --force
+```
+
+> modify /var/lib/pgsql/10/data/postgresql.conf
+
+```Shell
+listen_addresses = '*'
+```
+
+> add both AI VMs and master/slave DB VMs entries into /var/lib/pgsql/10/data/pg_hba.conf
+
+```SQL
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+
+# "local" is for Unix domain socket connections only
+local   all             all                                     trust
+# IPv4 local connections:
+host    all             all             127.0.0.1/32            trust
+# add VM host addresse entries here
+host    all             all             [VM1 IP address]/32     trust
+host    all             all             [VM2 IP address]/32     trust
+...
+```
+
+> start postgresql service
+
+```Shell
 systemctl start postgresql-10.service
 systemctl enable postgresql-10.service
 ```
 
-> create a new database and setting db users
-```Shell
-sudo su - postgres -c "psql"
-\conninfo
-\password postgres
-CREATE DATABASE [name of database];
-\q
-```
-
-> finally make sure pg_hba.conf is trust all localhost
-```SQL
-postgres=# show_hba_file;
-```
-
-
-### 3. redis server
+### 3. redis server (run on AI VMs locally)
 > for Redhat Linux (centos)
 ```Shell
 sudo yum -y install epel-release yum-utils
@@ -68,7 +82,7 @@ sudo systemctl status redis
 ```
 
 
-### 4. nginx
+### 4. nginx (nginx server)
 > for Redhat Linux (centos)
 ```Shell
 sudo yum -y install nginx
@@ -83,14 +97,14 @@ sudo firewall-cmd --reload
 ```
 
 
-### 5. virtualenv
+### 5. virtualenv (AI VMs)
 > for Redhat Linux (centos)
 ```Shell
 sudo yum -y install python-virtualenv
 ```
 
 
-### 6. tensorflow 2.0+
+### 6. tensorflow 2.0+ (AI VMs)
 
 > make sure pip version > 19.0.x
 ```Shell
@@ -98,7 +112,7 @@ sudo pip -V
 ```
 
 
-### 7. wsgi
+### 7. wsgi (AI VMs)
 > for both Linux system
 ```Shell
 sudo pip install uwsgi
@@ -106,99 +120,91 @@ sudo pip install uwsgi
 
 
 
-## Project installation Steps
+## Project installation Steps (AI VMs)
 
 
 ### 1. prepare the project
-> make project folder and clone the project.
-**for example the project name is "ai-opt"**:
+> make project folder and copy the project files.
+**for example the project name is "opt"**:
 
-+ 1.1. Clone the project
++ 1.1. [ on AI VMs ]  
+Copy the packed project source files
 ```Shell
-mkdir /ai-opt/chatfilter
-cd /ai-opt/chatfilter
-git clone ...
-cd /ai-opt/chatfilter/main
+mkdir /opt/chatfilter/main
+cd /opt/chatfilter/main
+copy files into the folder
 ```
 
-+ 1.2. Setting nginx config
-> copy and chang your network setting in nginx.conf file
-```Shell
-cp nginx.conf.example nginx.conf
-```
++ 1.2. [ on nginx server ]  
+nginx config
 
->  make symbolic link to niginx configs
-```Shell
-sudo ln -s /ai-opt/chatfilter/main/nginx.conf /etc/nginx/sites-enabled/
-or
-sudo ln -s /ai-opt/chatfilter/main/nginx.conf /etc/nginx/conf.d/
-```
+> please refer to /etc/nginx/nginx.conf and /etc/nginx/conf.d/ai.conf in the chinese ai-chat-filter project.  
 
-+ 1.3. Setting Project config
++ 1.3. [ on AI VMs ]  
+Set Project config
 > copy setting.ini and chagne config you need
 ```Shell
 cp setting.ini.example setting.ini
 nano setting.ini
 ```
 
-> change "DATABASE" setting and "LANGUAGE_MODE"
+> check and set corresponding entries  
+please refer to https://en.wikipedia.org/wiki/List_of_tz_database_time_zones for TZ identifiers
 ```EditorConfig
 [MAIN]
+ALLOWED_HOSTS = *
+TIME_ZONE = America/Costa_Rica
 LANGUAGE_MODE = EN
 
 [DATABASE]
-DATABASE_NAME = DB_NAME
-DATABASE_USER = DB_USER_NAME
-DATABASE_PASSWORD = DB_PASSWORD
+DATABASE_HOST = [master DB address]
+
+[TWICE]
+TWICE_HOST = [another AI VM's address]
 ```
 
-+ 1.4. Create logs directory in project and make sure the logs folder changeable for supervisor(python)
++ 1.4. [ on master DB ]  
+create a new database and set db users.  
+DB name is the same as DATABASE_NAME in setting.ini mentioned above
+
 ```Shell
-mkdir /ai-opt/logs
-chmod -R 777 /ai-opt/logs
+sudo su - postgres -c "psql"
+\conninfo
+\password postgres
+CREATE DATABASE [name of database];
+\q
+``` 
+
++ 1.5. [ on AI VMs ]  
+Create logs directory in project and make sure the logs folder changeable for supervisor(python)
+```Shell
+mkdir /opt/logs
+chmod -R 777 /opt/logs
 ```
 
 
-### 2. build up virtual environment
+### 2. build up virtual environment (AI VMs)
 > Create virtual environment named venv:
 ```Shell
-cd /ai-opt
+cd /opt
 python3 -m venv venv
 chmod -R 777 venv
-source venv/bin/activate
+source /opt/venv/bin/activate
 python -V
 pip -V
 ```
-> should be seen the python version at least with 3.7.5 and pip is 19+
+> the python version should be at least 3.7.5 and pip version should be 19+
 
 
-### 3. install tensorflow 2.0 - lastest
-> before doing this you've make sure you already got "venv" environment
-> install what python's need in "venv"
+### 3. install python packages (AI VMs)
+> make sure the "venv" has been activated
 ```Shell
-pip install tf-nightly
-pip install tensorflow_datasets
-```
-
-
-### 4. install python librarys
-```Shell
+cd /opt/chatfilter/main
 pip install --upgrade pip
-pip install -r requirement.txt
-pip install psycopg2-binary
-pip install websocket
-pip install websocket-client
-pip install zhconv
-pip install xlwt
-pip install django-import-export
-pip install django-rq
-pip install grpcio
-pip install grpcio-tools
-pip install --upgrade protobuf
+pip install -r requirements.txt
 ```
 
-
-### 5. do django framework initialize
+### 4. initizlize django framework initialize (AI VMs)
 > build up the database instruction
 ```Shell
 python manage.py migrate
@@ -210,25 +216,35 @@ python manage.py loaddata ai/json/knowledge.json
 ```Shell
 python manage.py createsuperuser
 ```
-..fill all the form
+..fill all the form and save the django admin superuser infos
 
 > collect and copy the static file in project to improve performance
 ```Shell
 python manage.py collectstatic
 ```
+> A folder called static will be generated under /opt/chatfilter/main/. Move it to somewhere on the nginx server, then modify corresponding nginx.conf.
+
+```
+server {
+    ...
+
+    # Django static file
+    location /static {
+        alias [the path of the static folder mentioned above];
+    }
 
 
-### 6. training ai
-> before you train you may need to check your vocabulary dictionary
-```Shell
-python manage.py knowledge -i ai/assets/english/dict.xls -lan EN -f 3
 ```
 
-> start training
-```Shell
-python manage.py train -i ai/assets/textbook/json/english/2020-09-08.json -eng -t 1
 ```
+# then restart nginx (nginx server)
 
+sudo nginx -t
+sudo systemctl restart nginx
+or
+sudo nginx -s reload
+
+```
 
 ### 7. firewall setting
 > open tcp port for chatting socket if need
@@ -239,7 +255,7 @@ sudo firewall-cmd --permanent --zone=public --add-port=8025/tcp
 
 
 
-## For linux product deploy using supervisor
+## For linux product deploy using supervisor (AI VMs)
 setting supervisor <http://supervisord.org/configuration.html>
 (if you are in sourced on venv you have to deactivate it)
 ```Shell
@@ -258,24 +274,12 @@ sudo systemctl status supervisord
 > copy and edit config
 ```Shell
 cp supervisor.conf.example supervisor.conf
-nano superviosr.conf
 ```
-+ > change all directory `/opt/` to your project's folder
-```EditorConfig
-directory=/ai-opt/chatfilter/main
-```
-+ > change all `/opt/venv/bin/python` to your virtual environment python
-```EditorConfig
-command=/ai-opt/venv/bin/python tcpsocket/main.py -p 8025
-```
-+ > change all `/opt/logs/` to your logs folder
-```EditorConfig
-stdout_logfile=/ai-opt/logs/tcpsocket.log
-```
+
 
 > symbolic link to supervisor config
 ```Shell
-sudo ln -s /ai-opt/chatfilter/main/supervisor.conf /etc/supervisord.d/ai-chatfilter-service.ini
+sudo ln -s /opt/chatfilter/main/supervisor.conf /etc/supervisord.d/ai.conf.ini
 ```
 
 > reload supervisor
@@ -283,14 +287,8 @@ sudo ln -s /ai-opt/chatfilter/main/supervisor.conf /etc/supervisord.d/ai-chatfil
 sudo supervisorctl reload
 sudo supervisorctl reread
 sudo supervisorctl update
+sudo supervisorctl start all
 ```
-
-> reload nginx
-```Shell
-sudo systemctl reload nginx
-sudo systemctl restart nginx
-```
-
 
 ## Others
 
@@ -300,85 +298,3 @@ sestatus
 ```
 
 *SELinux might block the socket connection between nginx and supervisord*
-
-
-
-## Testing
-
-### 1. website
-> Test the django web site is working, type domain:port on browser for example: `http://127.0.0.1:8000/` you should see the screen with 404 not found page but has content like below
-```
-Using the URLconf defined in service.urls, Django tried these URL patterns, in this order:
-
-chat/
-admin/
-auth/
-auth/
-The empty path didn't match any of these.
-```
-
-> that means the website is working fine and next we change url to `http://127.0.0.1:8000/chat/`, try typeing something to test websockets
-
-### 2. tcp socket
-> use tcpsocket client to test chatting binary packages.
-```Shell
-cd /ai-opt/chatfilter/main
-python tcpsocket/client.py -h 127.0.0.1 -p 8025
-```
-> you will see
-```
-Please choose package type:
-1.hearting
-2.login
-3.login response
-4.chatting
-5.chat response
-Enter number:
-```
-*everything is fine!!*
-
-
-### 3. command line
-```shell
-python manage.py predict -t [speaksome..] -s
-python manage.py predict -i [ai/assets/..] -s
-```
-
-```shell
-python manage.py testsocket -i [ai/assets/..] -p 8025 -h 127.0.0.1
-```
-
-
-## Maintaining
-> some commod tips
-> dump and restore blockword data
-> do not use until you know all about database
-```Shell
-python manage.py dumpdata service > service/seed/initial.json
-
-python manage.py loaddata service/seed/initial.json
-
-python manage.py upsert -i ../excel file -model textbook
-
-python manage.py parsexcel -i ai/assets/textbook/pinyin
-python manage.py parsexcel -i ai/assets/textbook/grammar
-
-python manage.py freq -i ai/assets/textbook/json/pinyin
-
-python manage.py backupdatabase
-
-```
-
-
-## DOCKER (not finish)
-
-```Shell
-docker pull django
-docker pull postgres
-docker pull redis
-```
-
-
-### gRPC maintaining syntax
-
-python -m grpc_tools.protoc -I./grpcservice/protos --python_out=./grpcservice/pb --grpc_python_out=./grpcservice/pb ./grpcservice/protos/learn.proto
