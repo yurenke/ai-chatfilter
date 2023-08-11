@@ -1,0 +1,24 @@
+{
+  "name": "administration-client",
+  "version": "1.0.0",
+  "description": "client side of administration",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/snowwayne1231/ai-chatfilter-service.git"
+  },
+  "keywords": [
+    "ai",
+    "snow",
+    "client"
+  ],
+  "author": "snow",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/snowwayne1231/ai-chatfilter-service/issues"
+  },
+  "homepage": "https://github.com/snowwayne1231/ai-chatfilter-service#readme"
+}

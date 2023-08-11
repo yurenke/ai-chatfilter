@@ -1,0 +1,46 @@
+syntax = "proto3";
+option objc_class_prefix = "LC";
+
+
+service LearningCenter {
+
+    rpc Touch (BasicRequest) returns (BasicReply) {}
+    rpc StartTrain (TrainCommand) returns (TrainInfo) {}
+    rpc StopTrain (BasicCommand) returns (TrainInfo) {}
+    rpc GetTrainProcessingInfo (BasicCommand) returns (TrainInfo) {}
+    rpc StreamTrainProcessing (BasicCommand) returns (stream TrainInfo) {}
+}
+
+
+
+message BasicRequest {
+    int64 size = 1;
+    string str = 2;
+    int32 num = 3;
+}
+
+
+message BasicReply {
+    string message = 1;
+}
+
+
+message BasicCommand {
+    int32 order = 1;
+}
+
+
+message TrainCommand {
+    int32 order = 1;
+    int32 limit_hour = 2;
+    double target_accuracy = 3;
+    string json_condition = 4;
+}
+
+
+message TrainInfo {
+    int32 thread = 1;
+    int32 total = 2;
+    double loss = 3;
+    double accuracy = 4;
+}

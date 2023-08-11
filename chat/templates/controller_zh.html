@@ -1,0 +1,2307 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Admin Chat Controller</title>
+    <!-- <script src="https://unpkg.com/axios@1.0.0/dist/axios.min.js"></script> -->
+    <script src="./axios.min.js"></script>
+    <style>
+        div {
+            box-sizing: border-box;
+        }
+        ul {
+            list-style: none;
+            padding: 0px 10px;
+        }
+        h1,h2,h3,p,ul {
+            margin: 0px;
+        }
+
+        .main-ctl {
+            padding: 0px;
+            margin: 0px;
+            overflow: hidden;
+            height: 96vh;
+            width: 100%;
+            position: relative;
+        }
+        .float-l {
+            float: left;
+            height: 100%;
+        }
+        .left-panel {
+            width: 200px;
+            background-color: #e7e7e7;
+            font-size: 20px;
+        }
+        
+        .right-zone {
+            width: 100%;
+            height: 100%;
+            display: block;
+            padding-left: 200px;
+        }
+        .header {
+            height: 100px;
+            max-height: 20vh;
+            font-size: 24px;
+            width: 100%;
+            background-color: #d1fff0;
+            padding: 5px 20px;
+            border-bottom: 1px solid #000;
+        }
+        .alert-header {
+            height: 50px;
+            max-height: 15vh;
+            font-size: 24px;
+            width: 100%;
+            background-color: #d1fff0;
+            padding: 5px 20px;
+            border-bottom: 1px solid #000;
+        }
+        .header label {
+            font-size: 16px;
+        }
+        .content {
+            height: calc(100% - 100px);
+            overflow-y: auto;
+            position: relative;
+        }
+
+        #pinyin-block-list {
+            height: 86%;
+            overflow: auto;
+            max-height: 80vh;
+        }
+
+        #nickname-pinyin-block-list {
+            height: 86%;
+            overflow: auto;
+            max-height: 80vh;
+        }
+
+        #alert-words-list {
+            height: 86%;
+            overflow: auto;
+            max-height: 80vh;
+        }
+
+        .list {
+            position: relative;
+            box-sizing: border-box;
+            transition: all 0.5s ease;
+        }
+        .list >li {
+            border-bottom: 1px solid #ccc;
+            line-height: 32px;
+        }
+        .list >li:nth-child(odd) {
+            background-color: #f6fffc;
+        }
+        .list >li:hover {
+            background-color: #ededed;
+        }
+
+        .list >li:hover .delete-sapn {
+            visibility: inherit;
+        }
+        .list.draging {
+            border: 1px solid #21c2ff;
+        }
+        .list.loading::after {
+            content: 'Loading...';
+            display: block;
+            position: absolute;
+            z-index: 2;
+            font-size: 48px;
+            color: #00ff37;
+            height: 100%;
+            width: 100%;
+            top: 0px;
+            left: 0px;
+            text-align: center;
+            opacity: 0.4;
+            background-color: black;
+            box-sizing: border-box;
+            padding: 30px;
+            cursor: not-allowed;
+        }
+
+        .pbz-btn {
+            width: 80px;
+            height: 32px;
+            font-size: 20px;
+            vertical-align: bottom;
+            margin-right: 24px;
+            cursor: pointer;
+        }
+
+        #pinyin-block-input {
+            height: 34px;
+            width: 280px;
+        }
+
+        #nickname-pinyin-block-input {
+            height: 34px;
+            width: 280px;
+        }
+
+        #alert-words-input {
+            height: 34px;
+            width: 280px;
+        }
+
+        .delete-sapn {
+            color: red;
+            cursor: pointer;
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            text-align: center;
+            border: 1px solid red;
+            border-radius: 50%;
+            line-height: 20px;
+            margin: 0px 4px;
+            visibility: hidden;
+        }
+        .delete-sapn:hover {
+            background-color: red;
+            color: white;
+        }
+        .txt-span {
+            display: inline-block;
+            min-width: 320px;
+        }
+        .absolute-right {
+            position: absolute;
+            right: 0px;
+            top: 0px;
+        }
+        .font-btn {
+            font-size: 24px;
+            margin: 5px;
+            cursor: pointer;
+        }
+    </style>
+
+    <style>
+        .range {
+            float: left;
+            position: relative;
+            margin: 0px 1%;
+            max-height: 54vh;
+            overflow: auto;
+            box-sizing: border-box;
+        }
+
+        .range textarea, .range input {
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        .range textarea {
+            min-height: 112px;
+            max-height: 160px;
+            line-height: 22px;
+            width: 80%;
+        }
+
+        .bottom.left textarea, .bottom.left input {
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        .bottom.left textarea {
+            min-height: 112px;
+            max-height: 160px;
+            line-height: 22px;
+            width: 80%;
+        }
+
+        .bottom.range {
+            height: 26vh;
+            width: 100%;
+            margin: 0px;
+            padding: 2px 20px;
+            border-top: 1px solid #000;
+        }
+        .bottom.left {
+            height: 26vh;
+            float: left;
+            position: relative;
+            width: 50%;
+            margin: 0px;
+            padding: 2px 20px;
+            border-top: 1px solid #000;
+            border-right: 1px solid #000;
+            max-height: 54vh;
+            overflow: auto;
+            box-sizing: border-box;
+        }
+        .bottom.right {
+            height: 26vh;
+            float: right;
+            position: relative;
+            width: 50%;
+            margin: 0px;
+            padding: 2px 20px;
+            border-top: 1px solid #000;
+            max-height: 54vh;
+            overflow: auto;
+            box-sizing: border-box;
+        }
+        .left.range {
+            width: 0%;
+        }
+        .right.range {
+            height: 54vh;
+            width: 98%;
+        }
+        table {
+            width: 100%;
+        }
+
+        table td {
+            min-width: 5%;
+            border: 1px solid #dbdbdb;
+        }
+
+        .prediction {
+            text-align: center;
+        }
+
+        table dl {
+            margin: 0px;
+        }
+
+        input[type=checkbox] {
+            width: 16px;
+            height: 16px;
+        }
+
+        .filter-btn {
+            line-height: 22px;
+        }
+
+        .filter-btn dd {
+            display: inline-block;
+            /* border: 1px solid #333; */
+        }
+    </style>
+
+    <style>
+        .upload-zone {
+            box-sizing: border-box;
+            color: #fff;
+            background-color: #ccc;
+            border: 1px dashed #303030;
+            width: 80%;
+            min-height: 120px;
+            line-height: 112px;
+            font-size: 24px;
+            margin: 12px auto;
+            padding: 2px;
+            text-align: center;
+            transition: opacity 0.3s ease;
+        }
+        .upload-zone.draging {
+            color: #28cd97;
+            background-color: #ededed;
+            border: 1px solid #1518d5; 
+        }
+        table {
+            position: relative;
+            border: 1px solid #ccc;
+            box-shadow: 1px 1px 2px #ddd;
+        }
+        th {
+            background-color: #d1fff0;
+        }
+        tr:nth-child(even) {
+            background-color: #f6fffc;
+        }
+        .table-container {
+            max-height: calc(100% - 260px);
+            overflow: auto;;
+        }
+        .train-center-top-panel {
+            height: 260px;
+            overflow: hidden;
+            position: relative;
+        }
+        .dialog-shadow {
+            height: 100%;
+            background-color: rgba(0,0,0,0.3);
+            padding: 16vh 20vw;
+            box-sizing: border-box;
+        }
+        .dialog-content {
+            background-color: #fff;
+            height: 100%;
+            border-radius: 15px;
+            box-shadow: 2px 2px 6px #666;
+        }
+        .dialog-title {
+            height: 60px;
+            border-bottom: 1px solid #ccc;
+            background-color: #d1fff0;
+            text-align: center;
+            line-height: 58px;
+            font-size: 1.5em;
+        }
+        .dialog-body {
+            padding: 20px;
+            height: calc(100% - 60px);
+            overflow: auto;
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="main-ctl">
+        <div class="float-l left-panel">
+            <ul>
+                <li><a href="#" onclick="naviTo('live-chat-zone');" title="移動到[即時聊天]頁">即時聊天</a></li>
+                <li><a href="#" onclick="naviTo('live-nickname-request-zone');" title="移動到[暱稱修改審核判定]頁">暱稱修改審核判定</a></li>
+                <li><a href="#" onclick="naviTo('pinyin-block-zone');" title="移動到[即時禁詞]頁">即時禁詞(拼音)</a></li>
+                <li><a href="#" onclick="naviTo('alert-words-zone');" title="移動到[即時告警關鍵詞]頁">即時告警關鍵詞</a></li>          
+                <li><a href="#" onclick="naviTo('nickname-pinyin-block-zone');" title="移動到[暱稱即時禁詞]頁">暱稱即時禁詞(拼音)</a></li>
+                <li><a href="#" onclick="naviTo('train-center-zone');" title="移動到[訓練資料中心]頁">訓練資料中心</a></li>
+                <li><a href="#" onclick="naviTo('nickname-train-center-zone');" title="移動到[暱稱訓練資料中心]頁">暱稱訓練資料中心</a></li>
+            </ul>
+        </div>
+        <div class="right-zone">
+            <div id="pinyin-block-zone" style="height: 100%; display: none;">
+                <div class="header">
+                    <h2>即時禁詞(拼音)</h2>
+                    <div>
+                        <input type="text" id="pinyin-block-input"/>
+                        <button class="pbz-btn" id="btn-local-search" title="模糊匹配搜尋已存禁詞">搜尋</button>
+                        <button class="pbz-btn" id="btn-add-block" title="新增禁詞">新增</button>
+                    </div>
+                    <div class="absolute-right">
+                        <button class="font-btn" id="btn-download-list" title="下載現有禁詞">⏬</button>
+                        <button class="font-btn" id="btn-refresh" title="刷新後台禁詞到 Tcp Socket 服務">🔄</button>
+                    </div>
+                </div>
+                <div class="content">
+                    <ul id="pinyin-block-list" class="list">
+                        <li></li>
+                    </ul>
+                    <div id="list-info"></div>
+                </div>
+            </div>
+            <div id="nickname-pinyin-block-zone" style="height: 100%; display: none;">
+                <div class="header">
+                    <h2>暱稱即時禁詞(拼音)</h2>
+                    <div>
+                        <input type="text" id="nickname-pinyin-block-input"/>
+                        <button class="pbz-btn" id="btn-nickname-block-local-search" title="模糊匹配搜尋已存暱稱禁詞">搜尋</button>
+                        <button class="pbz-btn" id="btn-add-nickname-block" title="新增暱稱禁詞">新增</button>
+                    </div>
+                    <div class="absolute-right">
+                        <button class="font-btn" id="btn-download-nickname-block-list" title="下載現有暱稱禁詞">⏬</button>
+                        <button class="font-btn" id="btn-nickname-block-refresh" title="刷新後台暱稱禁詞到 Tcp Socket 服務">🔄</button>
+                    </div>
+                </div>
+                <div class="content">
+                    <ul id="nickname-pinyin-block-list" class="list">
+                        <li></li>
+                    </ul>
+                    <div id="nickname-block-list-info"></div>
+                </div>
+            </div>
+            <div id="alert-words-zone" style="height: 100%; display: none;">
+                <div class="header">
+                    <h2>即時告警關鍵詞</h2>
+                    <div>
+                        <input type="text" id="alert-words-input"/>
+                        <button class="pbz-btn" id="btn-alert-words-local-search" title="模糊匹配搜尋已存告警關鍵詞">搜尋</button>
+                        <button class="pbz-btn" id="btn-add-alert-words" title="新增告警關鍵詞">新增</button>
+                    </div>
+                    <div class="absolute-right">
+                        <button class="font-btn" id="btn-download-alert-words-list" title="下載現有告警關鍵詞">⏬</button>
+                        <button class="font-btn" id="btn-alert-words-refresh" title="刷新後台告警關鍵詞到 Tcp Socket 服務">🔄</button>
+                    </div>
+                </div>
+                <div class="content">
+                    <ul id="alert-words-list" class="list">
+                        <li></li>
+                    </ul>
+                    <div id="alert-words-list-info"></div>
+                </div>
+            </div>
+            <div id="live-chat-zone" style="height: 100%; display: block;">
+                <div class="header">
+                    <h2>即時聊天</h2>
+                    <div class="filter-btn">
+                        <dd>
+                            <label>自定義房號</label>
+                            <input type="test" id="room-text" value="localhost_test"></input>
+                        </dd>
+                        <dd>
+                            <label>名稱</label>
+                            <input type="test" id="room-nickname" value="TST-test"></input>
+                        </dd>
+                        <dd>
+                            <label>只顯示刪除</label>
+                            <input type="checkbox" id="checkbox-show-delete"></input>
+                        </dd>
+                    </div>
+                    <div class="filter-btn">
+                        
+                    </div>
+                </div>
+                <!-- <div class="left range">
+                </div> -->
+                <div class="right range">
+                    
+                    <table>
+                        <thead>
+                            <th style="width: 10%;">房號</th>
+                            <th style="width: 12%;">玩家</th>
+                            <th style="width: 35%;">聊天內容</th>
+                            <th style="width: 5%;">結果</th>
+                            <th style="width: 12%;">原因</th>
+                            <th style="width: 26%;">詳細</th>
+                        </thead>
+                        <tbody id="table-body">
+            
+                        </tbody>
+                    </table>
+                </div>
+                <div class="bottom left">
+                    <textarea id="chat-log" cols="80" rows="20" readonly></textarea>
+                    <input id="chat-message-input" type="text" size="100"/>
+                    <input id="chat-message-submit" type="button" value="Send"/>
+                </div>
+                <div class="bottom right">
+                    <div class="alert-header">
+                        <h3>可疑對話</h3>
+                    </div>
+                    <table>
+                        <thead>
+                            <th style="width: 10%;">房號</th>
+                            <th style="width: 30%;">玩家</th>
+                            <th style="width: 60%;">聊天內容</th>
+                        </thead>
+                        <tbody id="alert-table-body">
+            
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="live-nickname-request-zone" style="height: 100%; display: none;">
+                <div class="header">
+                    <h2>暱稱修改審核判定</h2>
+                    <div class="filter-btn">
+                        <dd>
+                            <label>只顯示重置</label>
+                            <input type="checkbox" id="checkbox-show-reject"></input>
+                        </dd>
+                    </div>
+                </div>
+                <!-- <div class="left range">
+                </div> -->
+                <div class="right range">
+                    
+                    <table>
+                        <thead>
+                            <th style="width: 40%;">暱稱內容</th>
+                            <th style="width: 5%;">結果</th>
+                            <th style="width: 15%;">原因</th>
+                            <th style="width: 40%;">詳細</th>
+                        </thead>
+                        <tbody id="nickname-request-table-body">
+            
+                        </tbody>
+                    </table>
+                </div>
+                <div class="bottom range">
+                    <textarea id="nickname-request-log" cols="100" rows="20" readonly></textarea>
+                    <input id="nickname-request-input" type="text" size="100"/>
+                    <input id="nickname-request-submit" type="button" value="Send"/>
+                </div>
+            </div>
+            <div id="train-center-zone" style="height: 100%; display: none;">
+                <div class="header">
+                    <h2>訓練資料中心</h2>
+                </div>
+                <div class="right range" style="height: calc(100% - 120px); max-height: none;">
+                    <div class="train-center-top-panel">
+                        <div id="train-center-panel-training">
+                            <table>
+                                <thead>
+                                    <th>
+                                        <button class="pbz-btn" onclick="refresh_train_panel()" style="width:auto; margin: 0px;">⟳</button>
+                                        <span>狀態</span>
+                                    </th>
+                                    <th>學習準確率</th>
+                                    <th>預估結束時間</th>
+                                    <th>上次學習時間</th>
+                                    <th>驗證準確率</th>
+                                </thead>
+                                <tbody>
+                                    <td id="train-center-status">讀取中..</td>
+                                    <td id="train-center-accuracy">0.00</td>
+                                    <td><span id="train-center-eta">0:00</span><span> 小時</span></td>
+                                    <td id="train-center-timestamp"></td>
+                                    <td id="train-center-validation">0%</td>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="train-center-panel-ready">
+                            <div id="upload-train-excel" class="upload-zone">請拖曳學習資料到此處</div>
+                            <div style="text-align: center;">
+                                <button id="start-train" class="pbz-btn" style="width: 120px; display: none;">開始學習</button>
+                                <!-- <button id="stop-train" class="pbz-btn" onclick="stop_training()" style="width: 120px; display: none;">停止</button> -->
+                                <button id="test-accuracy" class="pbz-btn" onclick="test_accuracy()" style="width: auto; display: none;">-</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <p>僅顯示最新上傳的資料 Length: ( <span id="train-page-look"></span> / <span id="train-count"></span> )
+                            <button onclick="switchTextbooksPage(false)">上一頁</button>
+                            <button onclick="switchTextbooksPage(true)">下一頁</button>
+                            <button onclick="downloadTextbook()">下載全部</button>
+                        </p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Origin File</th>
+                                    <th>Text</th>
+                                    <th>Status</th>
+                                    <th>Weight</th>
+                                </tr>
+                            </thead>
+                            <tbody id="train-table-body">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div id="nickname-train-center-zone" style="height: 100%; display: none;">
+                <div class="header">
+                    <h2>暱稱訓練資料中心</h2>
+                </div>
+                <div class="right range" style="height: calc(100% - 120px); max-height: none;">
+                    <div class="train-center-top-panel">
+                        <div id="nickname-train-center-panel-training">
+                            <table>
+                                <thead>
+                                    <th>
+                                        <button class="pbz-btn" onclick="refresh_train_panel()" style="width:auto; margin: 0px;">⟳</button>
+                                        <span>狀態</span>
+                                    </th>
+                                    <th>學習準確率</th>
+                                    <th>預估結束時間</th>
+                                    <th>上次學習時間</th>
+                                    <th>驗證準確率</th>
+                                </thead>
+                                <tbody>
+                                    <td id="nickname-train-center-status">讀取中..</td>
+                                    <td id="nickname-train-center-accuracy">0.00</td>
+                                    <td><span id="nickname-train-center-eta">0:00</span><span> 小時</span></td>
+                                    <td id="nickname-train-center-timestamp"></td>
+                                    <td id="nickname-train-center-validation">0%</td>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="nickname-train-center-panel-ready">
+                            <div id="nickname-upload-train-excel" class="upload-zone">請拖曳學習資料到此處</div>
+                            <div style="text-align: center;">
+                                <button id="nickname-start-train" class="pbz-btn" style="width: 120px; display: none;">開始學習</button>
+                                <!-- <button id="stop-train" class="pbz-btn" onclick="stop_training()" style="width: 120px; display: none;">停止</button> -->
+                                <button id="nickname-test-accuracy" class="pbz-btn" onclick="nickname_test_accuracy()" style="width: auto; display: none;">-</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <p>僅顯示最新上傳的資料 Length: ( <span id="nickname-train-page-look"></span> / <span id="nickname-train-count"></span> )
+                            <button onclick="switchNicknameTextbooksPage(false)">上一頁</button>
+                            <button onclick="switchNicknameTextbooksPage(true)">下一頁</button>
+                            <button onclick="downloadNicknameTextbook()">下載全部</button>
+                        </p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Origin File</th>
+                                    <th>Text</th>
+                                    <th>Status</th>
+                                    <!-- <th>Weight</th> -->
+                                </tr>
+                            </thead>
+                            <tbody id="nickname-train-table-body">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script id="common">
+        var key_send_train_remotely = '__remotetrain__';
+        var key_get_model = '__getmodel__';
+        var key_is_admin_client = '__isadminclient__';
+        var key_change_nickname_request = '__changenicknamerequest__';
+
+        var maxSocketRetry = 15;
+        window.conn = ConnWebSocket();
+        window.chat_is_training = false;
+        window.nickname_is_training = false;
+        window.is_testing = false;
+        
+        function ConnWebSocket(name='') {
+            if (window.conn) {
+                delete window.conn.onmessage
+                delete window.conn.onclose
+                delete window.conn.onerror
+                delete window.conn
+            }
+
+            var chatSocket = new WebSocket(
+                // 'ws://' + window.location.host + '/ws/chat/' + name + '/'
+                'ws://' + window.location.host + '/ws/chat/'
+            );
+
+            var _limit_chatbox = 100;
+            var _limit_alertbox = 50;
+            var _limit_nicknamebox = 100;
+
+            chatSocket.onopen = function() {
+                chatSocket.send(JSON.stringify({
+                    'msgid': key_is_admin_client,
+                }));
+            }
+
+            chatSocket.onmessage = function(e) {
+                var data = JSON.parse(e.data);
+                var msgid = data['msgid'];              
+
+                if (Number.isInteger(msgid)) {
+                    var user = data['user'];
+                    var room = data['room'];
+                    var message = data['message'];
+                    var prediction = data['prediction'];
+                    var reason_char = data['reason_char'];
+                    var detail = data['detail'];
+                    var is_suspicious = data['is_suspicious'];
+                    // alert-table-part
+                    if(is_suspicious == 1) {
+                        var atbody = document.querySelector('#alert-table-body');
+                        var _tr = document.createElement('tr');
+                        ['room', 'user', 'text'].map(e => {
+                            var loc = data[e];
+                            var _td = document.createElement('td');
+                                
+                            if (typeof loc == 'object') {
+                                // console.log(loc);
+                                // loc = JSON.stringify(loc);
+                                handleObjectToTd(_td, loc)
+                                
+                            } else {
+                                if (e == 'user') {
+                                    var _lv = data['lv'] || 0;
+                                    var _anchor = data['anchor'] || 0;
+                                    _td.innerText = `${loc} [${_anchor}] (lv${_lv})`;
+                                } else {
+                                    _td.innerText = loc;
+                                }
+                            }
+                            _td.className = e;
+                            _tr.appendChild(_td);
+                        });
+                        atbody.prepend(_tr);
+                        
+                        var trs = atbody.getElementsByTagName('tr');
+                        // console.log('trs: ', [trs]);
+                        if (trs.length > _limit_alertbox) {
+                            atbody.removeChild(atbody.lastChild)
+                        }
+                    }
+                    // chat-part
+                    if (window.is_show_only_deleted && prediction == 0) {
+                        return;
+                    }
+                    
+                    var tbody = document.querySelector('#table-body');
+                    var _tr = document.createElement('tr');
+                    ['room', 'user', 'text', 'prediction', 'reason_char', 'detail'].map(e => {
+                        var loc = data[e];
+                        var _td = document.createElement('td');
+                            
+                        if (typeof loc == 'object') {
+                            // console.log(loc);
+                            // loc = JSON.stringify(loc);
+                            handleObjectToTd(_td, loc)
+                            
+                        } else {
+                            if (e == 'user') {
+                                var _lv = data['lv'] || 0;
+                                var _anchor = data['anchor'] || 0;
+                                _td.innerText = `${loc} [${_anchor}] (lv${_lv})`;
+                            } else {
+                                _td.innerText = loc;
+                            }
+                        }
+                        _td.className = e;
+                        _tr.appendChild(_td);
+                    });
+                    tbody.prepend(_tr);
+                    
+                    var trs = tbody.getElementsByTagName('tr');
+                    // console.log('trs: ', [trs]);
+                    if (trs.length > _limit_chatbox) {
+                        tbody.removeChild(tbody.lastChild)
+                    }
+                }else if(msgid == key_change_nickname_request) {
+                    var code = data['code'];
+                    if (window.is_show_only_rejected && code == 0) {
+                        return;
+                    }
+
+                    var tbody = document.querySelector('#nickname-request-table-body');
+                    var _tr = document.createElement('tr');
+                    ['nickname', 'code', 'reason_char', 'detail'].map(e => {
+                        var loc = data[e];
+                        var _td = document.createElement('td');
+                            
+                        if (typeof loc == 'object') {
+                            // console.log(loc);
+                            // loc = JSON.stringify(loc);
+                            handleObjectToTd(_td, loc)
+                            
+                        } else {
+                            _td.innerText = loc;
+                        }
+                        _td.className = e;
+                        _tr.appendChild(_td);
+                    });
+                    tbody.prepend(_tr);
+                    
+                    var trs = tbody.getElementsByTagName('tr');
+                    // console.log('trs: ', [trs]);
+                    if (trs.length > _limit_nicknamebox) {
+                        tbody.removeChild(tbody.lastChild)
+                    }
+                }
+                
+            };
+
+            chatSocket.onclose = function(e) {
+                console.error('Chat socket closed unexpectedly');
+                reConnectWebSocket()
+            };
+
+            chatSocket.onerror = function(e) {
+                reConnectWebSocket()
+            }
+
+            return chatSocket;
+        }
+
+        function reConnectWebSocket() {
+            if (window.connectedTimer) {
+                window.clearTimeout(window.connectedTimer);
+                delete window.connectedTimer;
+            }
+
+            window.connectedTimer = window.setTimeout(connection, 5000);
+        }
+
+        var conn_i = 0;
+        function connection() {
+            if (conn_i++ >= maxSocketRetry) {
+                window.alert('Please Reload This Page, The Socket Connection Can Not Be Connected.');
+            } else {
+                window.conn = ConnWebSocket();
+            }
+        }
+        function naviTo(zoneName) {
+            var zones = [
+                'live-chat-zone',
+                'live-nickname-request-zone',
+                'pinyin-block-zone',
+                'alert-words-zone',
+                'nickname-pinyin-block-zone',
+                'train-center-zone',
+                'nickname-train-center-zone'
+            ];
+            var _dom = document.getElementById(zoneName);
+            if (_dom) {
+                zones.map(z => {
+                    document.getElementById(z).style.display='none';
+                });
+                _dom.style.display='block';
+            } else {
+                zones.map((z, idx) => {
+                    document.getElementById(z).style.display= idx == 0 ? 'block' : 'none';
+                });
+            }
+        }
+
+
+        var Dialog = function() {
+            var self = this;
+            var dom, content, dataset;
+            init(arguments);
+
+            return dd
+
+            function init(args) {
+                self.dom = document.createElement('div');
+                self.dom.style.position = 'absolute';
+                self.dom.style.width = '100%';
+                self.dom.style.height = '0%';
+                self.dom.style.top = '0px';
+                self.dom.style.left = '0px';
+                self.dom.style.overflow = 'hidden';
+                self.dom.innerHTML = `<div class="dialog-shadow">
+                    <div class="dialog-content">
+                        <div class="dialog-title">Dialog</div>
+                        <div class="dialog-body">
+                        </div>
+                    </div>
+                </div>`;
+                document.body.appendChild(self.dom);
+                self.dom.querySelector('.dialog-shadow').addEventListener('click', function(evt) {
+                    self.dom.style.height = '0%';
+                });
+                self.dom.querySelector('.dialog-content').addEventListener('click', function(evt) {
+                    evt.preventDefault();
+                    evt.stopPropagation();
+                });
+            }
+            function dd(text, title = null) {
+                console.log(text);
+                self.dom.style.height = '100%';
+                var _html = '';
+                if (Array.isArray(text)) {
+                    _html = text.map(e => `<li>${e}</li>`).join('');
+                } else {
+                    _html = text;
+                }
+                self.dom.querySelector('.dialog-body').innerHTML = _html;
+                if (title && title.length > 0) {
+                    self.dom.querySelector('.dialog-title').innerHTML = title;
+                } else {
+                    self.dom.querySelector('.dialog-title').innerHTML = 'Dialog';
+                }
+            }
+        }
+        window.dialog = new Dialog();
+    </script>
+    
+    <script id="pinyin-block-script">
+        var pinyin_block_list = document.querySelector('#pinyin-block-list');
+        var pinyin_block_input = document.querySelector('#pinyin-block-input');
+        var list_info = document.querySelector('#list-info');
+        var btn_add_block = document.querySelector('#btn-add-block');
+        var btn_local_search = document.querySelector('#btn-local-search');
+        var btn_download_list = document.querySelector('#btn-download-list');
+        var btn_refresh = document.querySelector('#btn-refresh');
+        var global_pinyin_block_list = [];
+        var goon = false;
+        var max_block_num = 255;
+        // console.log('axios', axios);
+
+        reloadPinyinList();
+        
+        btn_add_block.onclick = function(e) {
+            var val = pinyin_block_input.value;
+            addPinyin(val.trim());
+        }
+
+        btn_local_search.onclick = function(e) {
+            var val = pinyin_block_input.value;
+            var exp = RegExp(`.*${val}.*`, 'ig');
+            if (val.length == 0) {
+                showList(global_pinyin_block_list);
+            } else {
+                showList(global_pinyin_block_list.filter(e => e[1].match(exp) || e[2].match(exp)));
+            }
+            // console.log('global_pinyin_block_list: ', global_pinyin_block_list);
+        }
+
+        pinyin_block_input.onchange = function(e) {
+            if (e.target.value.length == 0) {
+                showList(global_pinyin_block_list);
+            }
+        }
+
+        pinyin_block_list.onclick = function(e) {
+            var target = e.target;
+            if (target.classList.contains("delete-sapn")) {
+                if (!goon) {
+                    goon = window.confirm('確定執行刪除?');
+                }
+                if (goon) {
+                    var id = target.dataset.id;
+                    console.log([target]);
+
+                    axios.delete('/api/pinyinblock/' + id).then(e => {
+                        console.log('delete api: ', e.data);
+                        var _idx = global_pinyin_block_list.findIndex(e => e[0] == id);
+                        global_pinyin_block_list.splice(_idx, 1);
+                        list_info.innerHTML = `Total Length: ${global_pinyin_block_list.length}`;
+                        pinyin_block_list.removeChild(target.parentNode);
+                    });
+                }
+            }
+        }
+
+        pinyin_block_list.ondragenter = pinyin_block_list.ondragover = function(e) {
+            e.preventDefault();
+            this.classList.add('draging');
+        }
+        pinyin_block_list.ondragleave = function(e) {
+            e.preventDefault();
+            this.classList.remove('draging');
+        }
+
+        pinyin_block_list.ondrop = function(e) {
+            e.preventDefault();
+            this.classList.remove('draging');
+            var file = e.dataTransfer.files[0];
+            
+            
+            if (file.name.match(/.*\.csv$/i)) {
+                // var formData = new FormData();
+                // formData.append('file', file);
+                // console.log('formData: ', formData);
+                // axios.post('/api/upload/', formData, {
+                //     headers: {
+                //         'Content-Type': file.type,
+                //         'Content-Disposition': 'attachment; filename=' + file.name,
+                //     }
+                // });
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    console.log(event.target); 
+                    var res_text = event.target.result;
+                    var res_ary = res_text.split(/[\r\n]+/ig).map(r => r.split(',')[1]).filter(r => r && r.length > 0);
+                    console.log('reader res_ary: ', res_ary);
+                    var global_list = global_pinyin_block_list.map(e => e[1]);
+                    var filtered_ary = res_ary.filter(r => {
+                        return !global_list.includes(r);
+                    });
+                    console.log('filtered_ary: ', filtered_ary);
+                    addPinyin(filtered_ary);
+                };
+                reader.readAsText(file);
+            } else {
+                window.alert('錯誤的檔案格式');
+            }
+        }
+
+        btn_download_list.onclick = function(e) {
+            window.open('/api/pinyinblock/list', 'blank');
+        }
+
+        btn_refresh.onclick = function (e) {
+            if (window.conn) {
+                window.conn.send(JSON.stringify({
+                    'msgid': '__tcpsocketrefreshpinyinblock__',
+                    'code': 1,
+                }));
+                window.alert('已更新禁詞');
+                // axios.post('/api/pinyinblock/refresh').then(e => {
+                    
+                // });
+            } else {
+                window.alert('請等待socket連線.');
+            }
+            
+        }
+
+
+        function showList(block_list) {
+            var new_html = '';
+            goon = false;
+            block_list.slice(0, 255).map(ary => {
+                var id = ary[0];
+                var txt = ary[1];
+                var py = ary[2];
+                new_html += strLi(id, txt, py);
+            });
+            // if (block_list.length >= 100) {
+            //     new_html += '最多只顯示100筆..';
+            // }
+            pinyin_block_list.innerHTML = new_html;
+            list_info.innerHTML = `Now Length: ( ${block_list.length} ) / Total Length: ${global_pinyin_block_list.length}`;
+        }
+
+        function reloadPinyinList() {
+            axios.get('/api/data/dpinyinblist').then(e => {
+                global_pinyin_block_list = e.data;
+                console.log('global_pinyin_block_list: ', global_pinyin_block_list);
+                goon = false;
+                if (e.data.length == 0) {
+                    pinyin_block_list.innerHTML = '無資料';
+                } else {
+                    showList(global_pinyin_block_list);
+                }
+            });
+        }
+
+        function strLi(id, txt, py){
+            var _html = `<li><span class="delete-sapn" data-id="${id}">X</span><span class="txt-span">${txt}</span> <span>| ${py}</span></li>`;
+            return _html;
+        }
+
+        function domLi(id, txt, py) {
+            var _dom = document.createElement('li');
+            _dom.innerHTML = `<span class="delete-sapn" data-id="${id}">X</span><span class="txt-span">${txt}</span> <span>| ${py}</span>`;
+            return _dom;
+        }
+
+        function addPinyin(text) {
+            if (!text) return false;
+            if (global_pinyin_block_list.length >= max_block_num) {
+                return window.alert(`最多只能禁 [ ${max_block_num} ] 個禁詞. `);
+            }
+            goon = false;
+
+            var formData = new FormData();
+            var texts = [];
+
+            if (Array.isArray(text)) {
+                if (text.length > 0) {
+                    if (global_pinyin_block_list.length + text.length > max_block_num) {
+                        var _is = window.confirm(`最多只能禁 [ ${max_block_num} ] 個禁詞.  是否將超過數量的舊資料全移除?`);
+                        if (_is) {
+
+                        } else {
+                            return false;
+                        }
+                    }
+                    text.map(t => {
+                        formData.append('text[]', t);
+                        texts.push(t);
+                    });
+                } else {
+                    return window.alert('沒有需要更新.');
+                }
+            } else {
+                var isConflict = false;
+                global_pinyin_block_list.map(e => {
+                    var _txt = e[0];
+                    if (text == _txt) {
+                        isConflict = true;
+                    }
+                });
+                if (isConflict) {
+                    return window.alert('重複新增: '+ text);
+                }
+                if (text.match(/[\d]+/g)) {
+                    return window.alert('不能有數字');
+                }
+                formData.append('text[]', text);
+                texts.push(text);
+            }
+            pinyin_block_list.classList.add('loading');
+            return axios.post('/api/pinyinblock/add', {text: texts}).then(e => {
+                var data = e.data;
+                var result = data.result;
+                if (result && result.length > 0) {
+                    if (result.length == 1) {
+                        result.map(r => {
+                            var id = r.id;
+                            var text = r.text;
+                            var pinyin = r.pinyin;
+                            console.log('pinyinblock data: ', data);
+                            pinyin_block_list.prepend(domLi(id, text, pinyin));
+                            pinyin_block_input.value = '';
+                            global_pinyin_block_list.unshift([id, text, pinyin]);
+                            list_info.innerHTML = `Total Length: ${global_pinyin_block_list.length}`;
+                        });
+                    } else {
+                        reloadPinyinList();
+                    }
+                    window.alert('新增成功.');
+                } else {
+                    window.alert('新增失敗.');
+                    console.log('text: ', text, 'data: ', data);
+                    reloadPinyinList();
+                }
+                pinyin_block_list.classList.remove('loading');
+            });
+        }
+    </script>
+
+<script id="nickname-pinyin-block-script">
+    var nickname_pinyin_block_list = document.querySelector('#nickname-pinyin-block-list');
+    var nickname_pinyin_block_input = document.querySelector('#nickname-pinyin-block-input');
+    var nickname_block_list_info = document.querySelector('#nickname-block-list-info');
+    var btn_add_nickname_block = document.querySelector('#btn-add-nickname-block');
+    var btn_nickname_block_local_search = document.querySelector('#btn-nickname-block-local-search');
+    var btn_download_nickname_block_list = document.querySelector('#btn-download-nickname-block-list');
+    var btn_nickname_block_refresh = document.querySelector('#btn-nickname-block-refresh');
+    var global_nickname_pinyin_block_list = [];
+    var goon = false;
+    var max_block_num = 255;
+    // console.log('axios', axios);
+
+    reloadNicknamePinyinList();
+    
+    btn_add_nickname_block.onclick = function(e) {
+        var val = nickname_pinyin_block_input.value;
+        addNicknamePinyin(val.trim());
+    }
+
+    btn_nickname_block_local_search.onclick = function(e) {
+        var val = nickname_pinyin_block_input.value;
+        var exp = RegExp(`.*${val}.*`, 'ig');
+        if (val.length == 0) {
+            nicknameShowList(global_nickname_pinyin_block_list);
+        } else {
+            nicknameShowList(global_nickname_pinyin_block_list.filter(e => e[1].match(exp) || e[2].match(exp)));
+        }
+        // console.log('global_pinyin_block_list: ', global_pinyin_block_list);
+    }
+
+    nickname_pinyin_block_input.onchange = function(e) {
+        if (e.target.value.length == 0) {
+            nicknameShowList(global_nickname_pinyin_block_list);
+        }
+    }
+
+    nickname_pinyin_block_list.onclick = function(e) {
+        var target = e.target;
+        if (target.classList.contains("delete-sapn")) {
+            if (!goon) {
+                goon = window.confirm('確定執行刪除?');
+            }
+            if (goon) {
+                var id = target.dataset.id;
+                console.log([target]);
+
+                axios.delete('/api/nicknamepinyinblock/' + id).then(e => {
+                    console.log('delete api: ', e.data);
+                    var _idx = global_nickname_pinyin_block_list.findIndex(e => e[0] == id);
+                    global_nickname_pinyin_block_list.splice(_idx, 1);
+                    nickname_block_list_info.innerHTML = `Total Length: ${global_nickname_pinyin_block_list.length}`;
+                    nickname_pinyin_block_list.removeChild(target.parentNode);
+                });
+            }
+        }
+    }
+
+    nickname_pinyin_block_list.ondragenter = nickname_pinyin_block_list.ondragover = function(e) {
+        e.preventDefault();
+        this.classList.add('draging');
+    }
+    nickname_pinyin_block_list.ondragleave = function(e) {
+        e.preventDefault();
+        this.classList.remove('draging');
+    }
+
+    nickname_pinyin_block_list.ondrop = function(e) {
+        e.preventDefault();
+        this.classList.remove('draging');
+        var file = e.dataTransfer.files[0];
+        
+        
+        if (file.name.match(/.*\.csv$/i)) {
+            // var formData = new FormData();
+            // formData.append('file', file);
+            // console.log('formData: ', formData);
+            // axios.post('/api/upload/', formData, {
+            //     headers: {
+            //         'Content-Type': file.type,
+            //         'Content-Disposition': 'attachment; filename=' + file.name,
+            //     }
+            // });
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                console.log(event.target); 
+                var res_text = event.target.result;
+                var res_ary = res_text.split(/[\r\n]+/ig).map(r => r.split(',')[1]).filter(r => r && r.length > 0);
+                console.log('reader res_ary: ', res_ary);
+                var global_list = global_nickname_pinyin_block_list.map(e => e[1]);
+                var filtered_ary = res_ary.filter(r => {
+                    return !global_list.includes(r);
+                });
+                console.log('filtered_ary: ', filtered_ary);
+                addNicknamePinyin(filtered_ary);
+            };
+            reader.readAsText(file);
+        } else {
+            window.alert('錯誤的檔案格式');
+        }
+    }
+
+    btn_download_nickname_block_list.onclick = function(e) {
+        window.open('/api/nicknamepinyinblock/list', 'blank');
+    }
+
+    btn_nickname_block_refresh.onclick = function (e) {
+        if (window.conn) {
+            window.conn.send(JSON.stringify({
+                'msgid': '__tcpsocketrefreshnicknamepinyinblock__',
+                'code': 1,
+            }));
+            window.alert('已更新禁詞');
+            // axios.post('/api/pinyinblock/refresh').then(e => {
+                
+            // });
+        } else {
+            window.alert('請等待socket連線.');
+        }
+        
+    }
+
+
+    function nicknameShowList(block_list) {
+        var new_html = '';
+        goon = false;
+        block_list.slice(0, 255).map(ary => {
+            var id = ary[0];
+            var txt = ary[1];
+            var py = ary[2];
+            new_html += strLi(id, txt, py);
+        });
+        // if (block_list.length >= 100) {
+        //     new_html += '最多只顯示100筆..';
+        // }
+        nickname_pinyin_block_list.innerHTML = new_html;
+        nickname_block_list_info.innerHTML = `Now Length: ( ${block_list.length} ) / Total Length: ${global_nickname_pinyin_block_list.length}`;
+    }
+
+    function reloadNicknamePinyinList() {
+        axios.get('/api/data/dnpinyinblist').then(e => {
+            global_nickname_pinyin_block_list = e.data;
+            console.log('global_nickname_pinyin_block_list: ', global_nickname_pinyin_block_list);
+            goon = false;
+            if (e.data.length == 0) {
+                nickname_pinyin_block_list.innerHTML = '無資料';
+            } else {
+                nicknameShowList(global_nickname_pinyin_block_list);
+            }
+        });
+    }
+
+    function strLi(id, txt, py){
+        var _html = `<li><span class="delete-sapn" data-id="${id}">X</span><span class="txt-span">${txt}</span> <span>| ${py}</span></li>`;
+        return _html;
+    }
+
+    function domLi(id, txt, py) {
+        var _dom = document.createElement('li');
+        _dom.innerHTML = `<span class="delete-sapn" data-id="${id}">X</span><span class="txt-span">${txt}</span> <span>| ${py}</span>`;
+        return _dom;
+    }
+
+    function addNicknamePinyin(text) {
+        if (!text) return false;
+        if (global_nickname_pinyin_block_list.length >= max_block_num) {
+            return window.alert(`最多只能禁 [ ${max_block_num} ] 個禁詞. `);
+        }
+        goon = false;
+
+        var formData = new FormData();
+        var texts = [];
+
+        if (Array.isArray(text)) {
+            if (text.length > 0) {
+                if (global_nickname_pinyin_block_list.length + text.length > max_block_num) {
+                    var _is = window.confirm(`最多只能禁 [ ${max_block_num} ] 個禁詞.  是否將超過數量的舊資料全移除?`);
+                    if (_is) {
+
+                    } else {
+                        return false;
+                    }
+                }
+                text.map(t => {
+                    formData.append('text[]', t);
+                    texts.push(t);
+                });
+            } else {
+                return window.alert('沒有需要更新.');
+            }
+        } else {
+            var isConflict = false;
+            global_nickname_pinyin_block_list.map(e => {
+                var _txt = e[0];
+                if (text == _txt) {
+                    isConflict = true;
+                }
+            });
+            if (isConflict) {
+                return window.alert('重複新增: '+ text);
+            }
+            if (text.match(/[\d]+/g)) {
+                return window.alert('不能有數字');
+            }
+            formData.append('text[]', text);
+            texts.push(text);
+        }
+        nickname_pinyin_block_list.classList.add('loading');
+        return axios.post('/api/nicknamepinyinblock/add', {text: texts}).then(e => {
+            var data = e.data;
+            var result = data.result;
+            if (result && result.length > 0) {
+                if (result.length == 1) {
+                    result.map(r => {
+                        var id = r.id;
+                        var text = r.text;
+                        var pinyin = r.pinyin;
+                        console.log('nickname pinyinblock data: ', data);
+                        nickname_pinyin_block_list.prepend(domLi(id, text, pinyin));
+                        nickname_pinyin_block_input.value = '';
+                        global_nickname_pinyin_block_list.unshift([id, text, pinyin]);
+                        nickname_block_list_info.innerHTML = `Total Length: ${global_nickname_pinyin_block_list.length}`;
+                    });
+                } else {
+                    reloadNicknamePinyinList();
+                }
+                window.alert('新增成功.');
+            } else {
+                window.alert('新增失敗.');
+                console.log('text: ', text, 'data: ', data);
+                reloadNicknamePinyinList();
+            }
+            nickname_pinyin_block_list.classList.remove('loading');
+        });
+    }
+</script>
+
+    <script id="alert-words-script">
+        var alert_words_list = document.querySelector('#alert-words-list');
+        var alert_words_input = document.querySelector('#alert-words-input');
+        var alert_words_list_info = document.querySelector('#alert-words-list-info');
+        var btn_add_alert_words = document.querySelector('#btn-add-alert-words');
+        var btn_alert_words_local_search = document.querySelector('#btn-alert-words-local-search');
+        var btn_download_alert_words_list = document.querySelector('#btn-download-alert-words-list');
+        var btn_alert_words_refresh = document.querySelector('#btn-alert-words-refresh');
+        var global_alert_words_list = [];
+        var goon = false;
+        var max_words_num = 255;
+        // console.log('axios', axios);
+
+        reloadAlertWordsList();
+        
+        btn_add_alert_words.onclick = function(e) {
+            var val = alert_words_input.value;
+            addAlertWord(val.trim());
+        }
+
+        btn_alert_words_local_search.onclick = function(e) {
+            var val = alert_words_input.value;
+            var exp = RegExp(`.*${val}.*`, 'ig');
+            if (val.length == 0) {
+                showAlertWordsList(global_alert_words_list);
+            } else {
+                showAlertWordsList(global_alert_words_list.filter(e => e[1].match(exp)));
+            }
+            // console.log('global_pinyin_block_list: ', global_pinyin_block_list);
+        }
+
+        alert_words_input.onchange = function(e) {
+            if (e.target.value.length == 0) {
+                showAlertWordsList(global_alert_words_list);
+            }
+        }
+
+        alert_words_list.onclick = function(e) {
+            var target = e.target;
+            if (target.classList.contains("delete-sapn")) {
+                if (!goon) {
+                    goon = window.confirm('確定執行刪除?');
+                }
+                if (goon) {
+                    var id = target.dataset.id;
+                    console.log([target]);
+
+                    axios.delete('/api/alertwords/' + id).then(e => {
+                        console.log('delete api: ', e.data);
+                        var _idx = global_alert_words_list.findIndex(e => e[0] == id);
+                        global_alert_words_list.splice(_idx, 1);
+                        alert_words_list_info.innerHTML = `Total Length: ${global_alert_words_list.length}`;
+                        alert_words_list.removeChild(target.parentNode);
+                    });
+                }
+            }
+        }
+
+        alert_words_list.ondragenter = alert_words_list.ondragover = function(e) {
+            e.preventDefault();
+            this.classList.add('draging');
+        }
+        alert_words_list.ondragleave = function(e) {
+            e.preventDefault();
+            this.classList.remove('draging');
+        }
+
+        alert_words_list.ondrop = function(e) {
+            e.preventDefault();
+            this.classList.remove('draging');
+            var file = e.dataTransfer.files[0];
+            
+            
+            if (file.name.match(/.*\.csv$/i)) {
+                // var formData = new FormData();
+                // formData.append('file', file);
+                // console.log('formData: ', formData);
+                // axios.post('/api/upload/', formData, {
+                //     headers: {
+                //         'Content-Type': file.type,
+                //         'Content-Disposition': 'attachment; filename=' + file.name,
+                //     }
+                // });
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    console.log(event.target); 
+                    var res_text = event.target.result;
+                    var res_ary = res_text.split(/[\r\n]+/ig).map(r => r.split(',')[1]).filter(r => r && r.length > 0);
+                    console.log('reader res_ary: ', res_ary);
+                    var global_list = global_alert_words_list.map(e => e[1]);
+                    var filtered_ary = res_ary.filter(r => {
+                        return !global_list.includes(r);
+                    });
+                    console.log('filtered_ary: ', filtered_ary);
+                    addAlertWord(filtered_ary);
+                };
+                reader.readAsText(file);
+            } else {
+                window.alert('錯誤的檔案格式');
+            }
+        }
+
+        btn_download_alert_words_list.onclick = function(e) {
+            window.open('/api/alertwords/list', 'blank');
+        }
+
+        btn_alert_words_refresh.onclick = function (e) {
+            if (window.conn) {
+                window.conn.send(JSON.stringify({
+                    'msgid': '__tcpsocketrefreshalertwords__',
+                    'code': 1,
+                }));
+                window.alert('已更新告警關鍵詞');
+                // axios.post('/api/pinyinblock/refresh').then(e => {
+                    
+                // });
+            } else {
+                window.alert('請等待socket連線.');
+            }
+            
+        }
+
+
+        function showAlertWordsList(words_list) {
+            var new_html = '';
+            goon = false;
+            words_list.slice(0, 255).map(ary => {
+                var id = ary[0];
+                var txt = ary[1];
+                new_html += strLi(id, txt);
+            });
+            // if (words_list.length >= 100) {
+            //     new_html += '最多只顯示100筆..';
+            // }
+            alert_words_list.innerHTML = new_html;
+            alert_words_list_info.innerHTML = `Now Length: ( ${words_list.length} ) / Total Length: ${global_alert_words_list.length}`;
+        }
+
+        function reloadAlertWordsList() {
+            axios.get('/api/data/dalertwordslist').then(e => {
+                global_alert_words_list = e.data;
+                console.log('global_alert_words_list: ', global_alert_words_list);
+                goon = false;
+                if (e.data.length == 0) {
+                    alert_words_list.innerHTML = '無資料';
+                } else {
+                    showAlertWordsList(global_alert_words_list);
+                }
+            });
+        }
+
+        function strLi(id, txt){
+            var _html = `<li><span class="delete-sapn" data-id="${id}">X</span><span class="txt-span">${txt}</span></li>`;
+            return _html;
+        }
+
+        function domLi(id, txt) {
+            var _dom = document.createElement('li');
+            _dom.innerHTML = `<span class="delete-sapn" data-id="${id}">X</span><span class="txt-span">${txt}</span>`;
+            return _dom;
+        }
+
+        function addAlertWord(text) {
+            if (!text) return false;
+            if (global_alert_words_list.length >= max_words_num) {
+                return window.alert(`最多只能設定 [ ${max_words_num} ] 個告警關鍵詞. `);
+            }
+            goon = false;
+
+            var formData = new FormData();
+            var texts = [];
+
+            if (Array.isArray(text)) {
+                if (text.length > 0) {
+                    if (global_alert_words_list.length + text.length > max_words_num) {
+                        var _is = window.confirm(`最多只能設定 [ ${max_words_num} ] 個告警關鍵詞.  是否將超過數量的舊資料全移除?`);
+                        if (_is) {
+
+                        } else {
+                            return false;
+                        }
+                    }
+                    text.map(t => {
+                        formData.append('text[]', t);
+                        texts.push(t);
+                    });
+                } else {
+                    return window.alert('沒有需要更新.');
+                }
+            } else {
+                var isConflict = false;
+                global_alert_words_list.map(e => {
+                    var _txt = e[0];
+                    if (text == _txt) {
+                        isConflict = true;
+                    }
+                });
+                if (isConflict) {
+                    return window.alert('重複新增: '+ text);
+                }
+                if (text.match(/[\d]+/g)) {
+                    return window.alert('不能有數字');
+                }
+                formData.append('text[]', text);
+                texts.push(text);
+            }
+            alert_words_list.classList.add('loading');
+            return axios.post('/api/alertwords/add', {text: texts}).then(e => {
+                var data = e.data;
+                var result = data.result;
+                if (result && result.length > 0) {
+                    if (result.length == 1) {
+                        result.map(r => {
+                            var id = r.id;
+                            var text = r.text;
+                            console.log('alert word data: ', data);
+                            alert_words_list.prepend(domLi(id, text));
+                            alert_words_input.value = '';
+                            global_alert_words_list.unshift([id, text]);
+                            alert_words_list_info.innerHTML = `Total Length: ${global_alert_words_list.length}`;
+                        });
+                    } else {
+                        reloadAlertWordsList();
+                    }
+                    window.alert('新增成功.');
+                } else {
+                    window.alert('新增失敗.');
+                    console.log('text: ', text, 'data: ', data);
+                    reloadAlertWordsList();
+                }
+                alert_words_list.classList.remove('loading');
+            });
+        }
+    </script>
+
+    <script id="chat-script">
+        // var roomName = {{ room_name_json }};
+        var randomUsers = new Array(3).fill(0).map(e => {
+            return Math.random().toString(16).substring(2,8);
+        });
+        var randomRooms = new Array(5).fill(0).map(e => {
+            return Math.random().toString(16).substring(2,6);
+        });
+
+        // window.conn = ConnWebSocket();
+
+        document.querySelector('#chat-message-input').focus();
+        document.querySelector('#chat-message-input').onkeyup = function(e) {
+            if (e.keyCode === 13) {  // enter, return
+                document.querySelector('#chat-message-submit').click();
+            }
+        };
+        document.querySelector('#chat-message-submit').onclick = function(e) {
+            var messageInputDom = document.querySelector('#chat-message-input');
+            var message = messageInputDom.value;
+            if (window.conn) {
+                window.conn.send(JSON.stringify({
+                    'msgid': 1234,
+                    'user': (document.querySelector('#room-nickname').value || '').trim(),
+                    // 'room': randomRooms[Math.floor(Math.random() * randomRooms.length)],
+                    'room': (document.querySelector('#room-text').value || '').trim(),
+                    'message': message.replace(/\ /g, ''),
+                    'detail': 1,
+                }));
+                messageInputDom.value = '';
+
+                document.querySelector('#chat-log').value += (message + '\n');
+            }
+        };
+
+        document.querySelector('#checkbox-show-delete').onclick = function(e) {
+            var checked = this.checked;
+            window.is_show_only_deleted = checked;
+        }
+
+        function handleObjectToTd(ele, _object) {
+            for (key in _object) {
+                var _val = _object[key];
+                var __div = document.createElement('div');
+                if (typeof _val == 'object' && !Array.isArray(_val)) {
+                    handleObjectToTd(__div, _val)
+                } else {
+                    if (key == 'predicted_ratios') {
+                        var __next_val = '';
+                        _val.map((v,i) => {
+                            if (parseInt(v) > 0) {
+                                __next_val += '<i>[ ' + i + ' ] = ' + v + '</i><br/>';
+                            }
+                        });
+                        
+                        _val = __next_val
+                    }
+                    __div.innerHTML = '<dl>'+key+' : </dl><dl>' + _val + '</dl>';
+                }
+                ele.appendChild(__div);
+            }
+        }
+
+    </script>
+
+    <script id="nickname-request-script">
+        var key_change_nickname_request = '__changenicknamerequest__';
+
+        document.querySelector('#nickname-request-input').focus();
+        document.querySelector('#nickname-request-input').onkeyup = function(e) {
+            if (e.keyCode === 13) {  // enter, return
+                document.querySelector('#nickname-request-submit').click();
+            }
+        };
+        document.querySelector('#nickname-request-submit').onclick = function(e) {
+            var messageInputDom = document.querySelector('#nickname-request-input');
+            var message = messageInputDom.value;
+            if (window.conn) {
+                window.conn.send(JSON.stringify({
+                    'msgid': key_change_nickname_request,
+                    'message': message.replace(/\ /g, '')
+                }));
+                messageInputDom.value = '';
+
+                document.querySelector('#nickname-request-log').value += (message + '\n');
+            }
+        };
+
+        document.querySelector('#checkbox-show-reject').onclick = function(e) {
+            var checked = this.checked;
+            window.is_show_only_rejected = checked;
+        }
+
+    </script>
+
+    <script id="train-script">
+        var dom_upload_zones = document.querySelectorAll('.upload-zone');
+        var dom_upload_train_excel = document.getElementById('upload-train-excel');
+        var dom_nickname_upload_train_excel = document.getElementById('nickname-upload-train-excel');
+        var dom_train_table_body = document.getElementById('train-table-body');
+        var dom_nickname_train_table_body = document.getElementById('nickname-train-table-body');
+        var dom_train_count = document.getElementById('train-count');
+        var dom_nickname_train_count = document.getElementById('nickname-train-count');
+        var dom_train_page_look = document.getElementById('train-page-look');
+        var dom_nickname_train_page_look = document.getElementById('nickname-train-page-look');
+        var dom_start_train = document.getElementById('start-train');
+        var dom_nickname_start_train = document.getElementById('nickname-start-train');
+        var dom_test_accuracy = document.getElementById('test-accuracy');
+        var dom_nickname_test_accuracy = document.getElementById('nickname-test-accuracy');
+        var dom_train_center_panel_ready = document.getElementById('train-center-panel-ready');
+        var dom_train_center_panel_training = document.getElementById('train-center-panel-training');
+        var dom_train_center_validation = document.getElementById('train-center-validation');
+        var dom_nickname_train_center_panel_ready = document.getElementById('nickname-train-center-panel-ready');
+        var dom_nickname_train_center_panel_training = document.getElementById('nickname-train-center-panel-training');
+        var dom_nickname_train_center_validation = document.getElementById('nickname-train-center-validation');
+        var textbookPage = 1;
+        var textbookLatestCount = 0;
+        var has_previous = false;
+        var has_next = false;
+        var textbooks = [];
+        var nickname_textbookPage = 1;
+        var nickname_textbookLatestCount = 0;
+        var nickname_has_previous = false;
+        var nickname_has_next = false;
+        var nickname_textbooks = [];
+        
+        console.log('dom_upload_zones: ', dom_upload_zones);
+        window.start_decrease_train_ETA = false;
+        window.train_ETA_second_left = 0;
+        window.start_decrease_nickname_train_ETA = false;
+        window.nickname_train_ETA_second_left = 0;
+        window.setInterval(() => {;
+            if (window.start_decrease_train_ETA) {
+                window.train_ETA_second_left -= 15;
+                if (window.train_ETA_second_left < 0) {
+                    window.train_ETA_second_left = 0;
+                    window.start_decrease_train_ETA = false;
+                };
+                var _hours = Math.floor(window.train_ETA_second_left / 3600);
+                var _minutes = Math.floor((window.train_ETA_second_left % 3600) / 60);
+                if (_hours >= 16) {
+                    dom_train_center_panel_training.querySelector('#train-center-eta').innerText = ` > 16:00`;
+                } else {
+                    dom_train_center_panel_training.querySelector('#train-center-eta').innerText = `${_hours} : ${_minutes}`;
+                }
+            }
+            if (window.start_decrease_nickname_train_ETA) {
+                window.nickname_train_ETA_second_left -= 15;
+                if (window.nickname_train_ETA_second_left < 0) {
+                    window.nickname_train_ETA_second_left = 0;
+                    window.start_decrease_nickname_train_ETA = false;
+                }
+                var _hours = Math.floor(window.nickname_train_ETA_second_left / 3600);
+                var _minutes = Math.floor((window.nickname_train_ETA_second_left % 3600) / 60);
+                if (_hours >= 16) {
+                    dom_nickname_train_center_panel_training.querySelector('#nickname-train-center-eta').innerText = ` > 16:00`;
+                } else {
+                    dom_nickname_train_center_panel_training.querySelector('#nickname-train-center-eta').innerText = `${_hours} : ${_minutes}`;
+                }
+            }
+        }, 15 * 1000);
+        
+        window.addEventListener('load', function(e){
+            /*
+                for testing
+            */
+            // naviTo('train-center-zone');
+            refresh_train_panel();
+            refresh_train_table();
+            refresh_nickname_train_table();
+        });
+
+        dom_upload_zones.forEach(d => {
+            d.addEventListener('dragover', function(e){
+                e.preventDefault();
+                this.classList.add('draging');
+            });
+            d.addEventListener('drop', function(e){
+                e.preventDefault();
+                this.classList.remove('draging');
+            });
+            d.addEventListener('dragleave', function(e){
+                e.preventDefault();
+                this.classList.remove('draging');
+            });
+        });
+
+        dom_upload_train_excel.addEventListener('drop', function(e){
+            var file = e.dataTransfer.files[0];
+            let _promise = {};
+            console.log('file: ', file);
+            if (file.name.match(/.*\.xls.?$/i)) {
+                var formData = new FormData();
+                formData.append('file', file);
+                console.log('formData: ', formData);
+                dom_upload_train_excel.style.opacity = 0;
+                _promise = axios.post('/api/upload/textbook', formData, {
+                    headers: {
+                        'Content-Type': file.type,
+                        'Content-Disposition': 'attachment; filename=' + file.name,
+                    }
+                });
+            } else if (file.name.match(/.*\.json.?$/i)) {
+                var formData = new FormData();
+                formData.append('file', file);
+                dom_upload_train_excel.style.opacity = 0;
+                _promise = axios.post('/api/upload/textbookjson', formData, {
+                    headers: {
+                        'Content-Type': file.type,
+                        'Content-Disposition': 'attachment; filename=' + file.name,
+                    }
+                });
+            } else {
+                return window.alert('錯誤的檔案格式');
+            }
+            return _promise.then(e => {
+                console.log('upload done: ', e);
+                var data = e.data;
+                if (data.done) {
+                    window.alert('檔案上傳並且同步成功.');
+                } else {
+                    window.alert('檔案上傳成功. 但同步資料失敗.');
+                }
+                refresh_train_table();
+            }).catch(e => {
+                window.alert('檔案獲取失敗.');
+                console.log('error: ', e);
+            }).finally(e => {
+                dom_upload_train_excel.style.opacity = 1;
+            })
+        });
+
+        dom_nickname_upload_train_excel.addEventListener('drop', function(e){
+            var file = e.dataTransfer.files[0];
+            let _promise = {};
+            console.log('nickname_file: ', file);
+            if (file.name.match(/.*\.xls.?$/i)) {
+                var formData = new FormData();
+                formData.append('file', file);
+                console.log('formData: ', formData);
+                dom_nickname_upload_train_excel.style.opacity = 0;
+                _promise = axios.post('/api/upload/nickname_textbook', formData, {
+                    headers: {
+                        'Content-Type': file.type,
+                        'Content-Disposition': 'attachment; filename=' + file.name,
+                    }
+                });
+            } else if (file.name.match(/.*\.json.?$/i)) {
+                var formData = new FormData();
+                formData.append('file', file);
+                dom_nickname_upload_train_excel.style.opacity = 0;
+                _promise = axios.post('/api/upload/nickname_textbookjson', formData, {
+                    headers: {
+                        'Content-Type': file.type,
+                        'Content-Disposition': 'attachment; filename=' + file.name,
+                    }
+                });
+            } else {
+                return window.alert('錯誤的檔案格式');
+            }
+            return _promise.then(e => {
+                console.log('upload done: ', e);
+                var data = e.data;
+                if (data.done) {
+                    window.alert('檔案上傳並且同步成功.');
+                } else {
+                    window.alert('檔案上傳成功. 但同步資料失敗.');
+                }
+                refresh_nickname_train_table();
+            }).catch(e => {
+                window.alert('檔案獲取失敗.');
+                console.log('nickname_error: ', e);
+            }).finally(e => {
+                dom_nickname_upload_train_excel.style.opacity = 1;
+            })
+        });
+
+        dom_start_train.addEventListener('click', function(e) {
+            return axios.post('/api/cmd/trainstart').then(e => {
+                var data = e.data;
+                console.log(data);
+                if (data.result && data.datetime) {
+                    refresh_train_panel(
+                        {
+                            chat: {
+                                ontraining: true,
+                                accuracy: 0.00,
+                                ETA: 20,
+                                timestamp: new Date().toISOString(),
+                            },
+                            nickname: window.nickname_rslt_backup
+                        }
+                    );
+                } else {
+                    alert(' 開始失敗. ');
+                }
+            }).catch(e => {
+                console.log(e);
+            });
+        });
+
+        dom_nickname_start_train.addEventListener('click', function(e) {
+            return axios.post('/api/cmd/nickname_trainstart').then(e => {
+                var data = e.data;
+                console.log(data);
+                if (data.result && data.datetime) {
+                    refresh_train_panel(
+                        {
+                            chat: window.chat_rslt_backup,
+                            nickname: {
+                                ontraining: true,
+                                accuracy: 0.00,
+                                ETA: 20,
+                                timestamp: new Date().toISOString(),
+                            }
+                        }
+                    );
+                } else {
+                    alert(' 開始失敗. ');
+                }
+            }).catch(e => {
+                console.log(e);
+            });
+        });
+            
+        function refresh_train_table(page) {
+            return axios.get('/api/textbook/1').then(e => {
+                textbookLatestCount = e.data.total;
+                var textbook = e.data.data;
+                console.log('textbook: ', textbook);
+                textbooks = textbook;
+                textbookPage = e.data.page.current;
+                has_next = e.data.page.has_next;
+                has_previous = e.data.page.has_previous;
+                displayTextbooksPage();
+            });
+        }
+
+        function switchTextbooksPage(isPlus = false) {
+            var switched = false;
+            if (isPlus) {
+                // (textbookPage+1)*500 < textbooks.length && textbookPage++;
+                if (has_next==true) {
+                    textbookPage++;
+                    switched = true;
+                }
+            }else {
+                // textbookPage--;
+                if (has_previous==true) {
+                    textbookPage--;
+                    switched = true;
+                }
+            }
+
+            if (switched==true) {
+                    return axios.get(`/api/textbook/${textbookPage}`).then(e => {
+                    textbookLatestCount = e.data.total;
+                    var textbook = e.data.data;
+                    console.log('textbook: ', textbook);
+                    textbooks = textbook;
+                    textbookPage = e.data.page.current;
+                    has_next = e.data.page.has_next;
+                    has_previous = e.data.page.has_previous;
+                    displayTextbooksPage();
+                });
+            }
+            
+        }
+
+        function displayTextbooksPage() {
+            var page = textbookPage - 1;
+            var textbook = textbooks;
+            var _html = '';
+            var _origin = '';
+            textbook.map(t => {
+                _origin = t[1];
+                var _text = t[2];
+                var _status = t[3];
+                var _weight = t[4];
+                var tr = `<tr><td>${_origin}</td><td>${_text}</td><td>${_status}</td><td>${_weight}</td></tr>`;
+                _html += tr;
+            });
+            dom_train_table_body.innerHTML = _html;
+            dom_train_count.innerText = textbookLatestCount;
+            dom_train_page_look.innerText = `${page*100+1}~${(page+1)*100 > textbookLatestCount ? textbookLatestCount : (page+1)*100}`;
+            dom_test_accuracy.innerText = `驗證準確率 【 ${_origin} 】`;
+            window.latest_origin = _origin;
+        }
+
+        function refresh_nickname_train_table(page) {
+            return axios.get('/api/nickname_textbook/1').then(e => {
+                nickname_textbookLatestCount = e.data.total;
+                var textbook = e.data.data;
+                console.log('nickname_textbook: ', textbook);
+                nickname_textbooks = textbook;
+                nickname_textbookPage = e.data.page.current;
+                nickname_has_next = e.data.page.has_next;
+                nickname_has_previous = e.data.page.has_previous;
+                displayNicknameTextbooksPage();
+            });
+        }
+
+        function switchNicknameTextbooksPage(isPlus = false) {
+            var switched = false;
+            if (isPlus) {
+                // (textbookPage+1)*500 < textbooks.length && textbookPage++;
+                if (nickname_has_next==true) {
+                    nickname_textbookPage++;
+                    switched = true;
+                }
+            }else {
+                // textbookPage--;
+                if (nickname_has_previous==true) {
+                    nickname_textbookPage--;
+                    switched = true;
+                }
+            }
+
+            if (switched==true) {
+                    return axios.get(`/api/nickname_textbook/${nickname_textbookPage}`).then(e => {
+                    nickname_textbookLatestCount = e.data.total;
+                    var textbook = e.data.data;
+                    console.log('nickname_textbook: ', textbook);
+                    nickname_textbooks = textbook;
+                    nickname_textbookPage = e.data.page.current;
+                    nickname_has_next = e.data.page.has_next;
+                    nickname_has_previous = e.data.page.has_previous;
+                    displayNicknameTextbooksPage();
+                });
+            }
+            
+        }
+
+        function displayNicknameTextbooksPage() {
+            var page = nickname_textbookPage - 1;
+            var textbook = nickname_textbooks;
+            var _html = '';
+            var _origin = '';
+            textbook.map(t => {
+                _origin = t[1];
+                var _text = t[2];
+                var _status = t[3];
+                var tr = `<tr><td>${_origin}</td><td>${_text}</td><td>${_status}</td></tr>`;
+                _html += tr;
+            });
+            dom_nickname_train_table_body.innerHTML = _html;
+            dom_nickname_train_count.innerText = nickname_textbookLatestCount;
+            dom_nickname_train_page_look.innerText = `${page*100+1}~${(page+1)*100 > nickname_textbookLatestCount ? nickname_textbookLatestCount : (page+1)*100}`;
+            dom_nickname_test_accuracy.innerText = `驗證準確率 【 ${_origin} 】`;
+            window.nickname_latest_origin = _origin;
+        }
+
+        function parse_general_result(result) {
+            if (typeof result == 'string') {
+                try {
+                    result = JSON.parse(result);
+                    if (result.result) {
+                        result = result.result;
+                    }
+                } catch (err) {
+                    console.log('parse general result err: ', err);
+                    result = {};
+                }
+            }
+            return result
+        }
+
+        function parse_refresh_test_result(result) {
+            if (typeof result == 'string') {
+                try {
+                    result = JSON.parse(result);
+                    if (result.result) {
+                        result = result.result;
+                    }
+                } catch (err) {
+                    console.log('refresh_test_result err: ', err);
+                    result = {status: 'done', acc: 0};
+                }
+            }
+            return result
+        }
+
+        function parse_refresh_train_panel_result(result) {
+            if (typeof result == 'string') {
+                try {
+                    result = JSON.parse(result);
+                    if (result.result) {
+                        result = result.result;
+                    }
+                } catch (err) {
+                    console.log('refresh_train_panel err: ', err);
+                    result = {chat: {ontraining: false, accuracy: 0, ETA: 0},
+                                nickname: {ontraining: false, accuracy: 0, ETA: 0}
+                            };
+                }
+            }
+            return result
+        }
+
+        function refresh_train_panel(result) {
+            if (result) {
+                result = parse_refresh_train_panel_result(result);
+                console.log('refresh_train_panel result: ', result);
+                chat_rslt = result.chat;
+                nickname_rslt = result.nickname;
+
+                window.chat_rslt_backup = chat_rslt;
+                window.nickname_rslt_backup = nickname_rslt;
+
+                if (chat_rslt.ontraining == undefined) {
+                    dom_train_center_panel_training.querySelector('#train-center-status').innerText = '🟠 準備中...';
+                    dom_train_center_panel_training.querySelector('#train-center-eta').innerText = '< 1';
+                } else {
+                    window.chat_is_training = chat_rslt.ontraining;
+                    dom_train_center_panel_training.querySelector('#train-center-status').innerText = chat_rslt.ontraining ? '🟡 正在學習...' : '🟢 就緒';
+                    var floor_eta = Math.floor(chat_rslt.ETA);
+                    // dom_train_center_panel_training.querySelector('#train-center-eta').innerText = result.ETA == -1 ? ' - ' : `${floor_eta > 16 ? ' > 16' : floor_eta} : ${Math.ceil((result.ETA % 1)*60)}`;
+                    dom_train_center_panel_training.querySelector('#train-center-eta').innerText = `${floor_eta > 16 ? ' > 16' : floor_eta} : ${Math.ceil((chat_rslt.ETA % 1)*60)}`;
+                }
+
+                if (nickname_rslt.ontraining == undefined) {
+                    dom_nickname_train_center_panel_training.querySelector('#nickname-train-center-status').innerText = '🟠 準備中...';
+                    dom_nickname_train_center_panel_training.querySelector('#nickname-train-center-eta').innerText = '< 1';
+                } else {
+                    window.nickname_is_training = nickname_rslt.ontraining;
+                    dom_nickname_train_center_panel_training.querySelector('#nickname-train-center-status').innerText = nickname_rslt.ontraining ? '🟡 正在學習...' : '🟢 就緒';
+                    var floor_eta = Math.floor(nickname_rslt.ETA);
+                    // dom_train_center_panel_training.querySelector('#train-center-eta').innerText = result.ETA == -1 ? ' - ' : `${floor_eta > 16 ? ' > 16' : floor_eta} : ${Math.ceil((result.ETA % 1)*60)}`;
+                    dom_nickname_train_center_panel_training.querySelector('#nickname-train-center-eta').innerText = `${floor_eta > 16 ? ' > 16' : floor_eta} : ${Math.ceil((nickname_rslt.ETA % 1)*60)}`;
+                }
+
+                dom_train_center_panel_training.querySelector('#train-center-accuracy').innerText = `${chat_rslt.accuracy * 100} %`;
+                dom_train_center_panel_training.querySelector('#train-center-timestamp').innerText = `${new Date(chat_rslt.timestamp)}`;
+                dom_nickname_train_center_panel_training.querySelector('#nickname-train-center-accuracy').innerText = `${nickname_rslt.accuracy * 100} %`;
+                dom_nickname_train_center_panel_training.querySelector('#nickname-train-center-timestamp').innerText = `${new Date(nickname_rslt.timestamp)}`;
+                
+                if (window.chat_is_training || window.nickname_is_training || window.is_testing) {
+                    dom_start_train.style.display = 'none';
+                    dom_test_accuracy.style.display = 'none';
+                    dom_nickname_start_train.style.display = 'none';
+                    dom_nickname_test_accuracy.style.display = 'none';
+                } else {
+                    dom_start_train.style.display = 'inline-block';
+                    dom_test_accuracy.style.display = 'inline-block';
+                    dom_nickname_start_train.style.display = 'inline-block';
+                    dom_nickname_test_accuracy.style.display = 'inline-block';
+                }
+
+                if (window.timeout_refresh_train) {
+                    window.clearTimeout(window.timeout_refresh_train);
+                }
+                if (chat_rslt.ETA > 0) {
+                    window.train_ETA_second_left = chat_rslt.ETA * 60 * 60;
+                    window.start_decrease_train_ETA = true;
+                } else {
+                    window.train_ETA_second_left = 0
+                    window.start_decrease_train_ETA = false;
+                }
+                if (nickname_rslt.ETA > 0) {
+                    window.nickname_train_ETA_second_left = nickname_rslt.ETA * 60 * 60;
+                    window.start_decrease_nickname_train_ETA = true;
+                } else {
+                    window.nickname_train_ETA_second_left = 0
+                    window.start_decrease_nickname_train_ETA = false;
+                }
+                window.timeout_refresh_train = window.setTimeout(refresh_train_panel, 15*60*1000);
+            } else {
+                axios.get('/api/cmd/aitrainer').then(e => {
+                    var data = e.data;
+                    refresh_train_panel(data.result || {});
+                });
+            }
+        }
+        function refresh_test_result(result) {
+            if(result) {
+                if (window.timeout_refresh_test) {
+                    window.clearTimeout(window.timeout_refresh_test);
+                }
+                result = parse_refresh_test_result(result);
+                if(result.status == 'done') {
+                    window.is_testing = false;
+                    dom_train_center_validation.innerText = `${parseInt(result.acc * 10000, 10) / 100} %`;
+                    dom_test_accuracy.style.pointerEvents = 'auto';
+                    dom_nickname_test_accuracy.style.display = 'inline-block';
+                    dom_nickname_start_train.style.display = 'inline-block';
+                    dom_test_accuracy.style.display = 'inline-block';
+                    dom_start_train.style.display = 'inline-block';
+                }
+                else if(result.status == 'ongoing') {
+                    window.timeout_refresh_test = window.setTimeout(refresh_test_result, 1*60*1000);
+                }
+            } else {
+                axios.get('/api/cmd/ai_test_result').then(e => {
+                    var data = e.data;
+                    console.log(data);
+                    refresh_test_result(data.result || {});
+                });
+            }
+        }
+
+        function refresh_nickname_test_result(result) {
+            if(result) {
+                if (window.timeout_refresh_nickname_test) {
+                    window.clearTimeout(window.timeout_refresh_nickname_test);
+                }
+                result = parse_refresh_test_result(result);
+                if(result.status == 'done') {
+                    window.is_testing = false;
+                    dom_nickname_train_center_validation.innerText = `${parseInt(result.acc * 10000, 10) / 100} %`;
+                    dom_nickname_test_accuracy.style.pointerEvents = 'auto';
+                    dom_nickname_test_accuracy.style.display = 'inline-block';
+                    dom_nickname_start_train.style.display = 'inline-block';
+                    dom_test_accuracy.style.display = 'inline-block';
+                    dom_start_train.style.display = 'inline-block';
+                }
+                else if(result.status == 'ongoing') {
+                    window.timeout_refresh_nickname_test = window.setTimeout(refresh_nickname_test_result, 1*60*1000);
+                }
+            } else {
+                axios.get('/api/cmd/nickname_ai_test_result').then(e => {
+                    var data = e.data;
+                    console.log(data);
+                    refresh_nickname_test_result(data.result || {});
+                });
+            }
+        }
+
+        function test_accuracy(e) {
+            if (window.latest_origin) {
+                
+                axios.post('/api/cmd/testaccuracy', {origin: window.latest_origin}).then(e => {
+                    var data = e.data;
+                    var result = parse_general_result(data.result);
+                    console.log(result);
+                    window.is_testing = true;
+                    dom_train_center_validation.innerText = 'load...';
+                    dom_test_accuracy.style.pointerEvents = 'none';
+                    dom_test_accuracy.style.display = 'none';
+                    dom_start_train.style.display = 'none';
+                    dom_nickname_test_accuracy.style.display = 'none';
+                    dom_nickname_start_train.style.display = 'none';
+
+                    window.timeout_refresh_test = window.setTimeout(refresh_test_result, 1*60*1000);
+                }).catch(err => {
+                    dom_train_center_validation.innerText = 'failed.';
+                    dom_test_accuracy.style.pointerEvents = 'auto';
+                    console.log(err);
+                });
+            }
+        }
+
+        function nickname_test_accuracy(e) {
+            if (window.nickname_latest_origin) {
+                
+                axios.post('/api/cmd/nickname_testaccuracy', {origin: window.nickname_latest_origin}).then(e => {
+                    var data = e.data;
+                    var result = parse_general_result(data.result);
+                    console.log(result);
+
+                    window.is_testing = true;
+                    dom_nickname_train_center_validation.innerText = 'load...';
+                    dom_nickname_test_accuracy.style.pointerEvents = 'none';
+                    dom_test_accuracy.style.display = 'none';
+                    dom_start_train.style.display = 'none';
+                    dom_nickname_test_accuracy.style.display = 'none';
+                    dom_nickname_start_train.style.display = 'none';
+
+                    window.timeout_refresh_nickname_test = window.setTimeout(refresh_nickname_test_result, 1*60*1000);
+                }).catch(err => {
+                    dom_nickname_train_center_validation.innerText = 'failed.';
+                    dom_nickname_test_accuracy.style.pointerEvents = 'auto';
+                    console.log(err);
+                });
+            }
+        }
+
+        function downloadTextbook() {
+            return axios.get('/api/data/textbookall').then(e => {
+                const data = e.data;
+                // console.log([data]);
+                var datastr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
+                var elem = document.createElement('a');
+                elem.setAttribute("href", datastr);
+                elem.setAttribute("download", new Date().toLocaleDateString()+".json");
+                elem.click();
+            });
+        }
+
+        function downloadNicknameTextbook() {
+            return axios.get('/api/data/nickname_textbookall').then(e => {
+                const data = e.data;
+                // console.log([data]);
+                var datastr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
+                var elem = document.createElement('a');
+                elem.setAttribute("href", datastr);
+                elem.setAttribute("download", new Date().toLocaleDateString()+".json");
+                elem.click();
+            });
+        }
+        
+    </script>
+</body>
+</html>

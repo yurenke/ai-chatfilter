@@ -1,0 +1,7 @@
+{
+    "search.exclude": {
+        "**/assets": true
+    },
+    "python.linting.pylintArgs": ["--ignore=D4"],
+    "python.linting.pylintEnabled": false
+}

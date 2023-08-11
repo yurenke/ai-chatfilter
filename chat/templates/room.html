@@ -1,0 +1,292 @@
+<!-- chat/templates/chat/room.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Chat Room</title>
+    <style>
+        .range {
+            float: left;
+            width: 48%;
+            position: relative;
+            margin: 0px 1%;
+            height: 60vh;
+            max-height: 86vh;
+            overflow: auto;
+            box-sizing: border-box;
+        }
+
+        .range textarea, .range input {
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        .range textarea {
+            min-height: 360px;
+            max-height: 500px;
+            line-height: 22px;
+        }
+
+        .bottom.range {
+            height: 35vh;
+            width: 100%;
+            margin: 0px;
+            padding: 20px;
+            border-top: 1px solid #000;
+        }
+        table {
+            width: 100%;
+        }
+
+        table td {
+            min-width: 5%;
+            border: 1px solid #666;
+        }
+
+        .prediction {
+            text-align: center;
+        }
+
+        table dl {
+            margin: 0px;
+        }
+
+        input[type=checkbox] {
+            width: 16px;
+            height: 16px;
+        }
+
+        .filter-btn {
+            line-height: 22px;
+        }
+
+        .filter-btn dd {
+            display: inline-block;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="left range">
+        <div class="filter-btn">
+            <dd>
+                <label>自定義房號</label>
+                <input type="test" id="room-text" value="localhost_test"></input>
+            </dd>
+            <dd>
+                <label>名稱</label>
+                <input type="test" id="room-nickname" value="TST-test"></input>
+            </dd>
+        </div>
+        <textarea id="chat-log" cols="100" rows="20" readonly></textarea><br/>
+        <input id="chat-message-input" type="text" size="100"/><br/>
+        <input id="chat-message-submit" type="button" value="Send"/>
+    </div>
+    <div class="right range">
+        <div class="filter-btn">
+            <dd>
+                <label>只顯示刪除</label>
+                <input type="checkbox" id="checkbox-show-delete"></input>
+            </dd>
+        </div>
+        <table>
+            <thead>
+                <th style="width: 10%;">房號</th>
+                <th style="width: 10%;">玩家</th>
+                <th style="width: 30%;">聊天內容</th>
+                <th style="width: 5%;">結果</th>
+                <th style="width: 15%;">原因</th>
+                <th style="width: 30%;">詳細</th>
+            </thead>
+            <tbody id="table-body">
+
+            </tbody>
+        </table>
+    </div>
+    <div class="bottom range">
+    </div>
+</body>
+<script>
+    // var roomName = {{ room_name_json }};
+    var randomUsers = new Array(3).fill(0).map(e => {
+        return Math.random().toString(16).substring(2,8);
+    });
+    var randomRooms = new Array(5).fill(0).map(e => {
+        return Math.random().toString(16).substring(2,6);
+    });
+
+    var key_send_train_remotely = '__remotetrain__';
+    var key_get_model = '__getmodel__';
+    var key_is_admin_client = '__isadminclient__';
+
+    var maxSocketRetry = 15;
+    var is_show_only_deleted = false;
+
+    window.conn = ConnWebSocket();
+
+    document.querySelector('#chat-message-input').focus();
+    document.querySelector('#chat-message-input').onkeyup = function(e) {
+        if (e.keyCode === 13) {  // enter, return
+            document.querySelector('#chat-message-submit').click();
+        }
+    };
+    document.querySelector('#chat-message-submit').onclick = function(e) {
+        var messageInputDom = document.querySelector('#chat-message-input');
+        var message = messageInputDom.value;
+        if (window.conn) {
+            window.conn.send(JSON.stringify({
+                'msgid': 1234,
+                'user': (document.querySelector('#room-nickname').value || '').trim(),
+                // 'room': randomRooms[Math.floor(Math.random() * randomRooms.length)],
+                'room': (document.querySelector('#room-text').value || '').trim(),
+                'message': message.replace(/\ /g, ''),
+                'detail': 1,
+            }));
+            messageInputDom.value = '';
+
+            document.querySelector('#chat-log').value += (message + '\n');
+        }
+    };
+
+    // document.querySelector('#train-remote').onclick = function(e) {
+    //     if (window.confirm('Start Train The Service?')) {
+    //         if (window.conn) {
+    //             window.conn.send(JSON.stringify({
+    //                 'msgid': key_send_train_remotely,
+    //                 'hour': 2,
+    //             }));
+    //         } else {
+    //             window.alert('Wrong Connection.');
+    //         }
+    //     }
+    // }
+
+    document.querySelector('#checkbox-show-delete').onclick = function(e) {
+        var checked = this.checked;
+        is_show_only_deleted = checked;
+    }
+
+    function handleObjectToTd(ele, _object) {
+        for (key in _object) {
+            var _val = _object[key];
+            var __div = document.createElement('div');
+            if (typeof _val == 'object' && !Array.isArray(_val)) {
+                handleObjectToTd(__div, _val)
+            } else {
+                if (key == 'predicted_ratios') {
+                    var __next_val = '';
+                    _val.map((v,i) => {
+                        if (parseInt(v) > 0) {
+                            __next_val += '<i>[ ' + i + ' ] = ' + v + '</i><br/>';
+                        }
+                    });
+                    
+                    _val = __next_val
+                }
+                __div.innerHTML = '<dl>'+key+' : </dl><dl>' + _val + '</dl>';
+            }
+            ele.appendChild(__div);
+        }
+    }
+
+    function ConnWebSocket(name='') {
+        if (window.conn) {
+            delete window.conn.onmessage
+            delete window.conn.onclose
+            delete window.conn.onerror
+            delete window.conn
+        }
+
+        var chatSocket = new WebSocket(
+            // 'ws://' + window.location.host + '/ws/chat/' + name + '/'
+            'ws://' + window.location.host + '/ws/chat/'
+        );
+
+        var _limit_chatbox = 100;
+
+        chatSocket.onopen = function() {
+            chatSocket.send(JSON.stringify({
+                'msgid': key_is_admin_client,
+            }));
+        }
+
+        chatSocket.onmessage = function(e) {
+            var data = JSON.parse(e.data);
+            var msgid = data['msgid'];
+            var user = data['user'];
+            var room = data['room'];
+            var message = data['message'];
+            var prediction = data['prediction'];
+            var reason_char = data['reason_char'];
+            var detail = data['detail'];
+
+            if (Number.isInteger(msgid)) {
+
+                if (is_show_only_deleted && prediction == 0) {
+                    return;
+                }
+                
+                var tbody = document.querySelector('#table-body');
+                var _tr = document.createElement('tr');
+                ['room', 'user', 'message', 'prediction', 'reason_char', 'detail'].map(e => {
+                    var loc = data[e];
+                    var _td = document.createElement('td');
+                        
+                    if (typeof loc == 'object') {
+                        // console.log(loc);
+                        // loc = JSON.stringify(loc);
+                        handleObjectToTd(_td, loc)
+                        
+                    } else {
+                        _td.innerText = loc;
+                    }
+                    _td.className = e;
+                    _tr.appendChild(_td);
+                });
+                tbody.prepend(_tr);
+                
+                var trs = tbody.getElementsByTagName('tr');
+                // console.log('trs: ', [trs]);
+                if (trs.length > _limit_chatbox) {
+                    tbody.removeChild(tbody.lastChild)
+                }
+            }
+            
+        };
+
+        chatSocket.onclose = function(e) {
+            console.error('Chat socket closed unexpectedly');
+            reConnectWebSocket()
+        };
+
+        chatSocket.onerror = function(e) {
+            reConnectWebSocket()
+        }
+
+        return chatSocket;
+    }
+
+    function reConnectWebSocket() {
+        if (window.connectedTimer) {
+            window.clearTimeout(window.connectedTimer);
+            delete window.connectedTimer;
+        }
+
+        window.connectedTimer = window.setTimeout(connection, 5000);
+    }
+
+    var conn_i = 0;
+    function connection() {
+        if (conn_i++ >= maxSocketRetry) {
+            window.alert('Please Reload This Page, The Socket Connection Can Not Be Connected.');
+        } else {
+            window.conn = ConnWebSocket();
+        }
+        
+    }
+
+    
+
+    
+</script>
+</html>

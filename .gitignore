@@ -1,0 +1,11 @@
+*.sqlite?
+auth
+*__pycache__*
+*ini
+*conf
+static*
+.svn*
+__*__.json
+__*__.xls
+.sorted_data*
+ai/bert*

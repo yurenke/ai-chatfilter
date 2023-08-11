@@ -1,0 +1,42 @@
+[supervisord]
+
+logfile = /opt/logs/supervisord.log
+
+
+[program:training-service]
+
+directory=/opt/chatfilter/main
+
+command=/opt/venv/bin/python manage.py training-service -port 8030 -host 0.0.0.0 -webport 8000 -webhost 127.0.0.1
+
+autostart=true
+autorestart=true
+
+stdout_logfile=/opt/logs/training-service.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=2
+
+stderr_logfile=/opt/logs/training-service-error.log
+
+redirect_stderr=true
+
+
+[program:interal-grpc-client]
+
+directory=/opt/chatfilter/main
+
+command=/opt/venv/bin/python manage.py rungrpc -port 50051 -webhost 127.0.0.1 -webport 8000
+
+autostart=true
+autorestart=true
+
+stdout_logfile=/opt/logs/grpc.log
+stdout_logfile_maxbytes=1MB
+stdout_logfile_backups=1
+
+
+
+[inet_http_server]
+port = *:9001
+username = snow
+password = snow

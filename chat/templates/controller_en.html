@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Admin Chat Controller</title>
+    <!-- <script src="https://unpkg.com/axios@1.0.0/dist/axios.min.js"></script> -->
+    <script src="./axios.min.js"></script>
+    <style>
+        div {
+            box-sizing: border-box;
+        }
+        ul {
+            list-style: none;
+            padding: 0px 10px;
+        }
+        h1,h2,h3,p,ul {
+            margin: 0px;
+        }
+
+        .main-ctl {
+            padding: 0px;
+            margin: 0px;
+            overflow: hidden;
+            height: 96vh;
+            width: 100%;
+            position: relative;
+        }
+        .float-l {
+            float: left;
+            height: 100%;
+        }
+        .left-panel {
+            width: 200px;
+            background-color: #e7e7e7;
+            font-size: 20px;
+        }
+        
+        .right-zone {
+            width: 100%;
+            height: 100%;
+            display: block;
+            padding-left: 200px;
+        }
+        .header {
+            height: 100px;
+            max-height: 20vh;
+            font-size: 24px;
+            width: 100%;
+            background-color: #d1fff0;
+            padding: 5px 20px;
+            border-bottom: 1px solid #000;
+        }
+        .header label {
+            font-size: 16px;
+        }
+        
+    </style>
+    <style>
+        .range {
+            float: left;
+            position: relative;
+            margin: 0px 1%;
+            max-height: 54vh;
+            overflow: auto;
+            box-sizing: border-box;
+        }
+
+        .range textarea, .range input {
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        .range textarea {
+            min-height: 112px;
+            max-height: 160px;
+            line-height: 22px;
+            width: 80%;
+        }
+        .bottom.range {
+            height: 26vh;
+            width: 100%;
+            margin: 0px;
+            padding: 2px 20px;
+            border-top: 1px solid #000;
+        }
+        .left.range {
+            width: 0%;
+        }
+        .right.range {
+            height: 54vh;
+            width: 98%;
+        }
+        table {
+            width: 100%;
+        }
+
+        table td {
+            min-width: 5%;
+            border: 1px solid #dbdbdb;
+        }
+
+        .prediction {
+            text-align: center;
+        }
+
+        table dl {
+            margin: 0px;
+        }
+
+        input[type=checkbox] {
+            width: 16px;
+            height: 16px;
+        }
+
+        .filter-btn {
+            line-height: 22px;
+        }
+
+        .filter-btn dd {
+            display: inline-block;
+            /* border: 1px solid #333; */
+        }
+    </style>
+    <style>
+        table {
+            position: relative;
+            border: 1px solid #ccc;
+            box-shadow: 1px 1px 2px #ddd;
+        }
+        th {
+            background-color: #d1fff0;
+        }
+        tr:nth-child(even) {
+            background-color: #f6fffc;
+        }
+        .dialog-shadow {
+            height: 100%;
+            background-color: rgba(0,0,0,0.3);
+            padding: 16vh 20vw;
+            box-sizing: border-box;
+        }
+        .dialog-content {
+            background-color: #fff;
+            height: 100%;
+            border-radius: 15px;
+            box-shadow: 2px 2px 6px #666;
+        }
+        .dialog-title {
+            height: 60px;
+            border-bottom: 1px solid #ccc;
+            background-color: #d1fff0;
+            text-align: center;
+            line-height: 58px;
+            font-size: 1.5em;
+        }
+        .dialog-body {
+            padding: 20px;
+            height: calc(100% - 60px);
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-ctl">
+        <div class="float-l left-panel">
+            <ul>
+                <li><a href="#" onclick="naviTo('live-chat-zone');" title="go to live chat page">Live Chat</a></li>
+            </ul>
+        </div>
+        <div class="right-zone">
+            <div id="live-chat-zone" style="height: 100%; display: block;">
+                <div class="header">
+                    <h2>Live Chat</h2>
+                    <div class="filter-btn">
+                        <dd>
+                            <label>customized room No.</label>
+                            <input type="test" id="room-text" value="localhost_test"></input>
+                        </dd>
+                        <dd>
+                            <label>username</label>
+                            <input type="test" id="room-nickname" value="TST-test"></input>
+                        </dd>
+                        <dd>
+                            <label>show deleted messages only</label>
+                            <input type="checkbox" id="checkbox-show-delete"></input>
+                        </dd>
+                    </div>
+                    <div class="filter-btn">
+                        
+                    </div>
+                </div>
+                <!-- <div class="left range">
+                </div> -->
+                <div class="right range">
+                    
+                    <table>
+                        <thead>
+                            <th style="width: 10%;">room No.</th>
+                            <th style="width: 12%;">player</th>
+                            <th style="width: 35%;">message</th>
+                            <th style="width: 5%;">result</th>
+                            <th style="width: 12%;">reason</th>
+                            <th style="width: 26%;">detail</th>
+                        </thead>
+                        <tbody id="table-body">
+            
+                        </tbody>
+                    </table>
+                </div>
+                <div class="bottom range">
+                    <textarea id="chat-log" cols="100" rows="20" readonly></textarea>
+                    <input id="chat-message-input" type="text" size="100"/>
+                    <input id="chat-message-submit" type="button" value="Send"/>
+                </div>
+                <!-- <div class="bottom left">
+                    <textarea id="chat-log" cols="80" rows="20" readonly></textarea>
+                    <input id="chat-message-input" type="text" size="100"/>
+                    <input id="chat-message-submit" type="button" value="Send"/>
+                </div>
+                <div class="bottom right">
+                    <div class="alert-header">
+                        <h3>可疑對話</h3>
+                    </div>
+                    <table>
+                        <thead>
+                            <th style="width: 10%;">房號</th>
+                            <th style="width: 30%;">玩家</th>
+                            <th style="width: 60%;">聊天內容</th>
+                        </thead>
+                        <tbody id="alert-table-body">
+            
+                        </tbody>
+                    </table>
+                </div> -->
+            </div>
+        </div>
+    </div>
+
+    <script id="common">
+        var key_is_admin_client = '__isadminclient__';
+        var maxSocketRetry = 15;
+        window.conn = ConnWebSocket();
+
+        function ConnWebSocket(name='') {
+            if (window.conn) {
+                delete window.conn.onmessage
+                delete window.conn.onclose
+                delete window.conn.onerror
+                delete window.conn
+            }
+
+            var chatSocket = new WebSocket(
+                // 'ws://' + window.location.host + '/ws/chat/' + name + '/'
+                'ws://' + window.location.host + '/ws/chat/'
+            );
+
+            var _limit_chatbox = 100;
+            // var _limit_alertbox = 50;
+            // var _limit_nicknamebox = 100;
+
+            chatSocket.onopen = function() {
+                chatSocket.send(JSON.stringify({
+                    'msgid': key_is_admin_client,
+                }));
+            }
+
+            chatSocket.onmessage = function(e) {
+                var data = JSON.parse(e.data);
+                var msgid = data['msgid'];              
+
+                if (Number.isInteger(msgid)) {
+                    var user = data['user'];
+                    var room = data['room'];
+                    var message = data['message'];
+                    var prediction = data['prediction'];
+                    var reason_char = data['reason_char'];
+                    var detail = data['detail'];
+                    var is_suspicious = data['is_suspicious'];
+                    // alert-table-part
+                    // if(is_suspicious == 1) {
+                    //     var atbody = document.querySelector('#alert-table-body');
+                    //     var _tr = document.createElement('tr');
+                    //     ['room', 'user', 'text'].map(e => {
+                    //         var loc = data[e];
+                    //         var _td = document.createElement('td');
+                                
+                    //         if (typeof loc == 'object') {
+                    //             // console.log(loc);
+                    //             // loc = JSON.stringify(loc);
+                    //             handleObjectToTd(_td, loc)
+                                
+                    //         } else {
+                    //             if (e == 'user') {
+                    //                 var _lv = data['lv'] || 0;
+                    //                 var _anchor = data['anchor'] || 0;
+                    //                 _td.innerText = `${loc} [${_anchor}] (lv${_lv})`;
+                    //             } else {
+                    //                 _td.innerText = loc;
+                    //             }
+                    //         }
+                    //         _td.className = e;
+                    //         _tr.appendChild(_td);
+                    //     });
+                    //     atbody.prepend(_tr);
+                        
+                    //     var trs = atbody.getElementsByTagName('tr');
+                    //     // console.log('trs: ', [trs]);
+                    //     if (trs.length > _limit_alertbox) {
+                    //         atbody.removeChild(atbody.lastChild)
+                    //     }
+                    // }
+                    // chat-part
+                    if (window.is_show_only_deleted && prediction == 0) {
+                        return;
+                    }
+                    
+                    var tbody = document.querySelector('#table-body');
+                    var _tr = document.createElement('tr');
+                    ['room', 'user', 'text', 'prediction', 'reason_char', 'detail'].map(e => {
+                        var loc = data[e];
+                        var _td = document.createElement('td');
+                            
+                        if (typeof loc == 'object') {
+                            // console.log(loc);
+                            // loc = JSON.stringify(loc);
+                            handleObjectToTd(_td, loc)
+                            
+                        } else {
+                            if (e == 'user') {
+                                var _lv = data['lv'] || 0;
+                                var _anchor = data['anchor'] || 0;
+                                _td.innerText = `${loc} [${_anchor}] (lv${_lv})`;
+                            } else {
+                                _td.innerText = loc;
+                            }
+                        }
+                        _td.className = e;
+                        _tr.appendChild(_td);
+                    });
+                    tbody.prepend(_tr);
+                    
+                    var trs = tbody.getElementsByTagName('tr');
+                    // console.log('trs: ', [trs]);
+                    if (trs.length > _limit_chatbox) {
+                        tbody.removeChild(tbody.lastChild)
+                    }
+                }
+                
+            };
+
+            chatSocket.onclose = function(e) {
+                console.error('Chat socket closed unexpectedly');
+                reConnectWebSocket()
+            };
+
+            chatSocket.onerror = function(e) {
+                reConnectWebSocket()
+            }
+
+            return chatSocket;
+        }
+
+        function reConnectWebSocket() {
+            if (window.connectedTimer) {
+                window.clearTimeout(window.connectedTimer);
+                delete window.connectedTimer;
+            }
+
+            window.connectedTimer = window.setTimeout(connection, 5000);
+        }
+
+        var conn_i = 0;
+        function connection() {
+            if (conn_i++ >= maxSocketRetry) {
+                window.alert('Please Reload This Page, The Socket Connection Can Not Be Connected.');
+            } else {
+                window.conn = ConnWebSocket();
+            }
+        }
+
+        function naviTo(zoneName) {
+            var zones = [
+                'live-chat-zone'
+                // 'live-chat-zone',
+                // 'live-nickname-request-zone',
+                // 'pinyin-block-zone',
+                // 'alert-words-zone',
+                // 'nickname-pinyin-block-zone',
+                // 'train-center-zone',
+                // 'nickname-train-center-zone'
+            ];
+            var _dom = document.getElementById(zoneName);
+            if (_dom) {
+                zones.map(z => {
+                    document.getElementById(z).style.display='none';
+                });
+                _dom.style.display='block';
+            } else {
+                zones.map((z, idx) => {
+                    document.getElementById(z).style.display= idx == 0 ? 'block' : 'none';
+                });
+            }
+        }
+
+        var Dialog = function() {
+            var self = this;
+            var dom, content, dataset;
+            init(arguments);
+
+            return dd
+
+            function init(args) {
+                self.dom = document.createElement('div');
+                self.dom.style.position = 'absolute';
+                self.dom.style.width = '100%';
+                self.dom.style.height = '0%';
+                self.dom.style.top = '0px';
+                self.dom.style.left = '0px';
+                self.dom.style.overflow = 'hidden';
+                self.dom.innerHTML = `<div class="dialog-shadow">
+                    <div class="dialog-content">
+                        <div class="dialog-title">Dialog</div>
+                        <div class="dialog-body">
+                        </div>
+                    </div>
+                </div>`;
+                document.body.appendChild(self.dom);
+                self.dom.querySelector('.dialog-shadow').addEventListener('click', function(evt) {
+                    self.dom.style.height = '0%';
+                });
+                self.dom.querySelector('.dialog-content').addEventListener('click', function(evt) {
+                    evt.preventDefault();
+                    evt.stopPropagation();
+                });
+            }
+            function dd(text, title = null) {
+                console.log(text);
+                self.dom.style.height = '100%';
+                var _html = '';
+                if (Array.isArray(text)) {
+                    _html = text.map(e => `<li>${e}</li>`).join('');
+                } else {
+                    _html = text;
+                }
+                self.dom.querySelector('.dialog-body').innerHTML = _html;
+                if (title && title.length > 0) {
+                    self.dom.querySelector('.dialog-title').innerHTML = title;
+                } else {
+                    self.dom.querySelector('.dialog-title').innerHTML = 'Dialog';
+                }
+            }
+        }
+        window.dialog = new Dialog();
+    </script>
+
+    <script id="chat-script">
+        // var roomName = {{ room_name_json }};
+        var randomUsers = new Array(3).fill(0).map(e => {
+            return Math.random().toString(16).substring(2,8);
+        });
+        var randomRooms = new Array(5).fill(0).map(e => {
+            return Math.random().toString(16).substring(2,6);
+        });
+
+        // window.conn = ConnWebSocket();
+
+        document.querySelector('#chat-message-input').focus();
+        document.querySelector('#chat-message-input').onkeyup = function(e) {
+            if (e.keyCode === 13) {  // enter, return
+                document.querySelector('#chat-message-submit').click();
+            }
+        };
+        document.querySelector('#chat-message-submit').onclick = function(e) {
+            var messageInputDom = document.querySelector('#chat-message-input');
+            var message = messageInputDom.value;
+            if (window.conn) {
+                window.conn.send(JSON.stringify({
+                    'msgid': 1234,
+                    'user': (document.querySelector('#room-nickname').value || '').trim(),
+                    // 'room': randomRooms[Math.floor(Math.random() * randomRooms.length)],
+                    'room': (document.querySelector('#room-text').value || '').trim(),
+                    'message': message.replace(/\ /g, ''),
+                    'detail': 1,
+                }));
+                messageInputDom.value = '';
+
+                document.querySelector('#chat-log').value += (message + '\n');
+            }
+        };
+
+        document.querySelector('#checkbox-show-delete').onclick = function(e) {
+            var checked = this.checked;
+            window.is_show_only_deleted = checked;
+        }
+
+        function handleObjectToTd(ele, _object) {
+            for (key in _object) {
+                var _val = _object[key];
+                var __div = document.createElement('div');
+                if (typeof _val == 'object' && !Array.isArray(_val)) {
+                    handleObjectToTd(__div, _val)
+                } else {
+                    if (key == 'predicted_ratios') {
+                        var __next_val = '';
+                        _val.map((v,i) => {
+                            if (parseInt(v) > 0) {
+                                __next_val += '<i>[ ' + i + ' ] = ' + v + '</i><br/>';
+                            }
+                        });
+                        
+                        _val = __next_val
+                    }
+                    __div.innerHTML = '<dl>'+key+' : </dl><dl>' + _val + '</dl>';
+                }
+                ele.appendChild(__div);
+            }
+        }
+
+    </script>
+</body>
+</html>
