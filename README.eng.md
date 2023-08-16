@@ -143,7 +143,8 @@ redis-cli --version
 ### 4. nginx (nginx server)
 > for Redhat Linux (centos)
 ```Shell
-sudo yum -y install nginx
+echo -e "[nginx]\nname=nginx repo\nbaseurl=http://nginx.org/packages/centos/7/\$basearch/\ngpgcheck=0\nenabled=1" > /etc/yum.repos.d/nginx.repo
+sudo yum install -y nginx.x86_64 nginx-module*
 sudo systemctl start nginx
 ```
 
@@ -263,7 +264,10 @@ pip install -r requirements.txt
 ```
 
 ### 4. initizlize django framework initialize (AI VMs)
-> build up the database instruction
+> build up the database instruction  
+
+Run the following commands on the first AI VM, don't run them again on the second AI VM.  
+These commands are for creating tables and loading data to the main DB
 ```Shell
 python manage.py migrate
 python manage.py loaddata service/seed/initial.json
