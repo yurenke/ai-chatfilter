@@ -27,9 +27,11 @@ sudo yum -y install python-devel python3-devel python-Levenshtein
 ```
 
 
-### 2. postgresql 10.11.x (DB VMs)
+### 2. PostgresQL (DB VMs)
 > for master and slave DB VMs  
-may be different machines from the AI VMs
+may be different machines from the AI VMs  
+
+2.1 for Proprietary machine (CentOS)
 ```Shell
 sudo rpm -Uvh https://yum.postgresql.org/10/redhat/rhel-7-x86_64/pgdg-centos10-10-2.noarch.rpm
 sudo yum -y install postgresql10-server postgresql10
@@ -69,8 +71,50 @@ systemctl start postgresql-10.service
 systemctl enable postgresql-10.service
 ```
 
+2.2 for AWS EC2 (Amazon Linux)
+
+> Install PostgresQL on Amazon Linux
+
+```
+sudo yum update -y
+sudo amazon-linux-extras enable postgresql14
+sudo yum install postgresql-server -y
+sudo postgresql-setup initdb
+
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+sudo systemctl status postgresql
+```
+
+> Set password for postgres user
+```
+sudo -u postgres psql
+ALTER USER postgres PASSWORD 'myPassword';
+```
+
+> Enable remote connection for PostgresQL
+```
+sudo vi /var/lib/pgsql/data/postgresql.conf
+
+# - Connection Settings -
+
+listen_addresses = '*'
+```
+```
+sudo vi /var/lib/pgsql/data/pg_hba.conf
+
+# add the following to the end of the file
+host    all          all            [VM IP address]/32  trust
+```
+
+> restart PostgresQL service
+
+```
+sudo systemctl restart postgresql
+```
+
 ### 3. redis server (run on AI VMs locally)
-> for Redhat Linux (centos)
+3.1 for Proprietary machine (centos)
 ```Shell
 sudo yum -y install epel-release yum-utils
 sudo yum -y install http://rpms.remirepo.net/enterprise/remi-release-7.rpm
@@ -81,6 +125,20 @@ sudo systemctl enable redis
 sudo systemctl status redis
 ```
 
+3.2 for AWS EC2 (Amazon Linux)
+
+```
+sudo yum update -y
+
+sudo amazon-linux-extras install epel
+sudo amazon-linux-extras install redis6
+
+sudo systemctl start redis
+sudo systemctl enable redis
+
+redis-server --version
+redis-cli --version
+```
 
 ### 4. nginx (nginx server)
 > for Redhat Linux (centos)
@@ -216,7 +274,7 @@ python manage.py loaddata ai/json/knowledge.json
 ```Shell
 python manage.py createsuperuser
 ```
-..fill all the form and save the django admin superuser infos
+..set django admin super user's username / password
 
 > collect and copy the static file in project to improve performance
 ```Shell
