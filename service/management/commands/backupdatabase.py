@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.apps import apps
-from django.db import DEFAULT_DB_ALIAS, connections
+from django.db import DEFAULT_DB_ALIAS, connections, transaction, DatabaseError
 import os, time
 from datetime import datetime
 
@@ -56,41 +56,82 @@ class Command(BaseCommand):
         _sql_alter_id_2 = _sql_alter_str.format(_table_name_blocked)
         _sql_alter_id_3 = _sql_alter_str.format(_table_name_changenickname)
 
+        _sql_restart_id_str = 'ALTER SEQUENCE {}_id_seq RESTART WITH 1;'
+        _sql_restart_id = _sql_restart_id_str.format(_table_name)
+        _sql_restart_id_2 = _sql_restart_id_str.format(_table_name_blocked)
+        _sql_restart_id_3 = _sql_restart_id_str.format(_table_name_changenickname)
+
         _sql_alter_str_autoincrement = "ALTER TABLE {} ALTER COLUMN id SET DEFAULT nextval('{}_id_seq');"
         _sql_alter_auto = _sql_alter_str_autoincrement.format(_table_name, _table_name)
         _sql_alter_auto_2 = _sql_alter_str_autoincrement.format(_table_name_blocked, _table_name_blocked)
         _sql_alter_auto_3 = _sql_alter_str_autoincrement.format(_table_name_changenickname, _table_name_changenickname)
         
-        
+        _sql_find_tables = """
+                        SELECT table_name 
+                        FROM information_schema.tables 
+                        WHERE table_name SIMILAR TO '({}|{}|{})_%';
+                    """
+        _sql_find_tables_to_export = _sql_find_tables.format(_table_name, _table_name_blocked, _table_name_changenickname)
+
         # print('SQL1 : {}'.format(_sql_rename_table))
         # print('SQL2 : {}'.format(_sql_create_new_table))
         
         connection = connections[DEFAULT_DB_ALIAS]
         
-        with connection.cursor() as cursor:
-            if _st_date == _end_date:
-                cursor.execute('DROP TABLE IF EXISTS {};'.format(_new_table_name))
-                cursor.execute('DROP TABLE IF EXISTS {};'.format(_new_table_name_blocked))
-                cursor.execute('DROP TABLE IF EXISTS {};'.format(_new_table_name_changenickname))
-            
-            cursor.execute(_sql_rename_table)
-            cursor.execute(_sql_create_new_table)
-            cursor.execute(_sql_alter_id)
-            cursor.execute(_sql_alter_auto)
-            cursor.execute(_sql_rename_table_2)
-            cursor.execute(_sql_create_new_table_2)
-            cursor.execute(_sql_alter_id_2)
-            cursor.execute(_sql_alter_auto_2)
-            cursor.execute(_sql_rename_table_3)
-            cursor.execute(_sql_create_new_table_3)
-            cursor.execute(_sql_alter_id_3)
-            cursor.execute(_sql_alter_auto_3)
+        try:
+            with transaction.atomic():
+                with connection.cursor() as cursor:
+                    if _st_date == _end_date:
+                        cursor.execute('DROP TABLE IF EXISTS {};'.format(_new_table_name))
+                        cursor.execute('DROP TABLE IF EXISTS {};'.format(_new_table_name_blocked))
+                        cursor.execute('DROP TABLE IF EXISTS {};'.format(_new_table_name_changenickname))
+                    
+                    cursor.execute(_sql_rename_table)
+                    cursor.execute(_sql_create_new_table)
+                    cursor.execute(_sql_alter_id)
+                    cursor.execute(_sql_restart_id)
+                    cursor.execute(_sql_alter_auto)
+                    cursor.execute(_sql_rename_table_2)
+                    cursor.execute(_sql_create_new_table_2)
+                    cursor.execute(_sql_alter_id_2)
+                    cursor.execute(_sql_restart_id_2)
+                    cursor.execute(_sql_alter_auto_2)
+                    cursor.execute(_sql_rename_table_3)
+                    cursor.execute(_sql_create_new_table_3)
+                    cursor.execute(_sql_alter_id_3)
+                    cursor.execute(_sql_restart_id_3)
+                    cursor.execute(_sql_alter_auto_3)
 
-        print('Done Rename Table [{}] ==> [{}]'.format(_table_name, _new_table_name))
-        print('Done Rename Table [{}] ==> [{}]'.format(_table_name_blocked, _new_table_name_blocked))
-        print('Done Rename Table [{}] ==> [{}]'.format(_table_name_changenickname, _new_table_name_changenickname))
-        _ed_time = datetime.now()
-        print('Spend Time: ', _ed_time - _st_time)
+                    cursor.execute(_sql_find_tables_to_export)
+                    tables = cursor.fetchall()
+
+                    for (tablename,) in tables:
+                        # 生成並執行COPY命令，將表內容導出到CSV
+                        copy_query = f"COPY {tablename} TO '/tmp/{tablename}.csv' CSV HEADER;"
+                        cursor.execute(copy_query)
+
+                        # 生成並執行DROP命令，刪除該表
+                        drop_query = f"DROP TABLE {tablename} CASCADE;"
+                        cursor.execute(drop_query)
+
+        except DatabaseError as e:
+            # 捕捉到資料庫相關錯誤時，進行回滾
+            print(f"Transaction failed due to a database error: {e}")
+
+        except Exception as e:
+            # 捕捉到其他一般異常時，進行回滾
+            print(f"Transaction failed due to an unexpected error: {e}")
+        
+        else:
+            # 如果沒有引發異常，則表示交易成功
+            print("Transaction completed successfully without any errors.")
+
+            print('Done Rename Table [{}] ==> [{}]'.format(_table_name, _new_table_name))
+            print('Done Rename Table [{}] ==> [{}]'.format(_table_name_blocked, _new_table_name_blocked))
+            print('Done Rename Table [{}] ==> [{}]'.format(_table_name_changenickname, _new_table_name_changenickname))
+            print('Exported as CSV files')
+            _ed_time = datetime.now()
+            print('Spend Time: ', _ed_time - _st_time)
 
 
         

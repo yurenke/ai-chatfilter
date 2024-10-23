@@ -2138,15 +2138,19 @@
                 dom_nickname_train_center_panel_training.querySelector('#nickname-train-center-accuracy').innerText = `${nickname_rslt.accuracy * 100} %`;
                 dom_nickname_train_center_panel_training.querySelector('#nickname-train-center-timestamp').innerText = `${new Date(nickname_rslt.timestamp)}`;
                 
-                if (window.chat_is_training || window.nickname_is_training || window.is_testing) {
+                if (window.chat_is_training || window.nickname_is_training) {
                     dom_start_train.style.display = 'none';
-                    dom_test_accuracy.style.display = 'none';
                     dom_nickname_start_train.style.display = 'none';
-                    dom_nickname_test_accuracy.style.display = 'none';
                 } else {
                     dom_start_train.style.display = 'inline-block';
-                    dom_test_accuracy.style.display = 'inline-block';
                     dom_nickname_start_train.style.display = 'inline-block';
+                }
+                
+                if (window.is_testing) { 
+                    dom_test_accuracy.style.display = 'none';    
+                    dom_nickname_test_accuracy.style.display = 'none';
+                } else { 
+                    dom_test_accuracy.style.display = 'inline-block';
                     dom_nickname_test_accuracy.style.display = 'inline-block';
                 }
 
@@ -2186,9 +2190,9 @@
                     dom_train_center_validation.innerText = `${parseInt(result.acc * 10000, 10) / 100} %`;
                     dom_test_accuracy.style.pointerEvents = 'auto';
                     dom_nickname_test_accuracy.style.display = 'inline-block';
-                    dom_nickname_start_train.style.display = 'inline-block';
+                    // dom_nickname_start_train.style.display = 'inline-block';
                     dom_test_accuracy.style.display = 'inline-block';
-                    dom_start_train.style.display = 'inline-block';
+                    // dom_start_train.style.display = 'inline-block';
                 }
                 else if(result.status == 'ongoing') {
                     window.timeout_refresh_test = window.setTimeout(refresh_test_result, 1*60*1000);
@@ -2213,9 +2217,9 @@
                     dom_nickname_train_center_validation.innerText = `${parseInt(result.acc * 10000, 10) / 100} %`;
                     dom_nickname_test_accuracy.style.pointerEvents = 'auto';
                     dom_nickname_test_accuracy.style.display = 'inline-block';
-                    dom_nickname_start_train.style.display = 'inline-block';
+                    // dom_nickname_start_train.style.display = 'inline-block';
                     dom_test_accuracy.style.display = 'inline-block';
-                    dom_start_train.style.display = 'inline-block';
+                    // dom_start_train.style.display = 'inline-block';
                 }
                 else if(result.status == 'ongoing') {
                     window.timeout_refresh_nickname_test = window.setTimeout(refresh_nickname_test_result, 1*60*1000);
@@ -2240,9 +2244,9 @@
                     dom_train_center_validation.innerText = 'load...';
                     dom_test_accuracy.style.pointerEvents = 'none';
                     dom_test_accuracy.style.display = 'none';
-                    dom_start_train.style.display = 'none';
+                    // dom_start_train.style.display = 'none';
                     dom_nickname_test_accuracy.style.display = 'none';
-                    dom_nickname_start_train.style.display = 'none';
+                    // dom_nickname_start_train.style.display = 'none';
 
                     window.timeout_refresh_test = window.setTimeout(refresh_test_result, 1*60*1000);
                 }).catch(err => {
@@ -2265,9 +2269,9 @@
                     dom_nickname_train_center_validation.innerText = 'load...';
                     dom_nickname_test_accuracy.style.pointerEvents = 'none';
                     dom_test_accuracy.style.display = 'none';
-                    dom_start_train.style.display = 'none';
+                    // dom_start_train.style.display = 'none';
                     dom_nickname_test_accuracy.style.display = 'none';
-                    dom_nickname_start_train.style.display = 'none';
+                    // dom_nickname_start_train.style.display = 'none';
 
                     window.timeout_refresh_nickname_test = window.setTimeout(refresh_nickname_test_result, 1*60*1000);
                 }).catch(err => {

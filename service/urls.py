@@ -20,6 +20,7 @@ from django.views.static import serve
 from service import instance
 from .views import ServiceJSONDataAPIView, ServiceUploadAPIView, ServiceRemoveAPIView, ServicePinyinBlockListAPIView
 from .views import ServiceNicknamePinyinBlockListAPIView, ServiceAlertWordsListAPIView, TwiceServiceAPIView, NicknameTwiceServiceAPIView, ServiceCommandAPIView, TrainServiceAPIView, train_val_complete_handler
+from .views import train_complete_notification_handler
 import os
 
 def read_model_path(request, name):
@@ -119,5 +120,6 @@ urlpatterns = [
     path('api/nickname_twice/<slug:fn>', NicknameTwiceServiceAPIView.as_view()),
     path('api/train/<slug:fn>', TrainServiceAPIView.as_view()),
     path('api/complete/<slug:name>', train_val_complete_handler),
+    path('api/notify/<slug:name>', train_complete_notification_handler),
     path('ai/', include('ai.urls')),
 ]

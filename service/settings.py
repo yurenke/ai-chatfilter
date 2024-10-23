@@ -29,6 +29,7 @@ SECRET_KEY = config.get('MAIN', 'SECRET_KEY')
 DEBUG = config.get('MAIN', 'DEBUG')
 
 ALLOWED_HOSTS = [_.strip() for _ in config.get('MAIN', 'ALLOWED_HOSTS').split(',')]
+DO_NOT_FILTER_ROOMS = [_.strip() for _ in config.get('MAIN', 'DO_NOT_FILTER_ROOMS').split(',')]
 
 # Application definition
 

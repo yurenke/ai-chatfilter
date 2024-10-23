@@ -256,11 +256,17 @@ class socketTcp(Tcp):
 
             _is_holding_size = len(recived) < _half_size
             _not_holding = not _is_holding_size
+
+            if _not_holding:
+                logging.error('TCPSocket Handle _not_holding !!')
             
             while recived:
                 _inner_recived_time = time.time()
                 _is_over_time = (_inner_recived_time - _start_handle_recived_time) > SECOND_TIMEOUT_THREADING
-                recived = self.handle_recive_threading(recived, _not_holding or _is_over_time)
+                if _is_over_time:
+                    logging.error('TCPSocket Handle _is_over_time !!')
+                # recived = self.handle_recive_threading(recived, _not_holding or _is_over_time)
+                recived = self.handle_recive_threading(recived)
         
         logging.info('**TCPSocket clinet disconnected, address: {}'.format(self.client_address))
         self.on_client_close()

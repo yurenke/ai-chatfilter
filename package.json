@@ -20,5 +20,8 @@
   "bugs": {
     "url": "https://github.com/snowwayne1231/ai-chatfilter-service/issues"
   },
-  "homepage": "https://github.com/snowwayne1231/ai-chatfilter-service#readme"
+  "homepage": "https://github.com/snowwayne1231/ai-chatfilter-service#readme",
+  "dependencies": {
+    "administration-client": "file:"
+  }
 }

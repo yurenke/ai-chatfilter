@@ -35,6 +35,8 @@ number_pinyin_set = set([
 ])
 
 allowed_number_units_chinese_chars = set(['十', '拾', '百', '千', '万', '亿'])
+must_block_pinyin = [['gong', 'zhong'], ['gong', 'zong'], ['pin', 'yin'], ['pan', 'yin'], ['ping', 'yin'], ['pin', 'ying'], ['pan', 'ying'], ['ping', 'ying'], ['wei', 'xin']]
+one_word_block_pinyin = ['gong', 'zong', 'zhong', 'hao', 'pin', 'ping', 'pan', 'wei', 'xin', 'yin', 'ying']
 
 
 
@@ -314,31 +316,27 @@ class PreFilter():
             if _aw in _text:
                 return _aw
         return False
-
-    def reg_pinyin_check(self, _pstring):
-        must_block_pinyin = [['gong_', 'zhong_'], ['gong_', 'zong_'], ['pin_', 'yin_'], ['ping_', 'yin_'], ['pin_', 'ying_'], ['ping_', 'ying_']]
-        
-        for words in must_block_pinyin:
-            pattern = r'.*'
-            for w in words:
-                pattern = pattern + w + r'.*'
-            rslt = re.search(pattern, _pstring)
-            if rslt:
-                return ' '.join(words)            
-        
-        return ''
+    
+    def blocked_pinyin_found(self, words, blocked_words):
+        i = 0
+        for w in words:
+            if w == blocked_words[i]:
+                i += 1
+            if i == len(blocked_words):
+                return True
+        return False
 
     def find_pinyin_blocked(self, text):
         _pinyin = self.parse_pinyin(text)
-        reg_check_rslt = self.reg_pinyin_check(_pinyin)
-        if reg_check_rslt:
-            return reg_check_rslt
-        # print('[find_pinyin_blocked] translate_by_string _pinyin: ',  _pinyin)
-        for _py in self.dynamic_pinyin_block_list:
-            if _py in _pinyin:
-                # print('find_pinyin_blocked : ', _py)
-                return _py
-        return False
+        if _pinyin:
+            words = _pinyin.split('_')[:-1]
+            if len(words) == 1 and words[0] in one_word_block_pinyin:
+                return words[0]
+            all_blocked_pinyin = must_block_pinyin + self.dynamic_pinyin_block_list
+            for b_words in all_blocked_pinyin:
+                if self.blocked_pinyin_found(words, b_words):
+                    return '_'.join(b_words)
+        return ''
 
     def find_nickname_pinyin_blocked(self, text):
         _pinyin = self.parse_pinyin(text)
@@ -353,7 +351,7 @@ class PreFilter():
             if _py in _pinyin:
                 # print('find_pinyin_blocked : ', _py)
                 return _py
-        return False
+        return ''
 
     def parse_pinyin(self, text):
         # _parsed_text = re.sub(r'[a-zA-Z\d\s]+', '', text)
@@ -391,10 +389,10 @@ class PreFilter():
         _pinyin_idx = 2
         if len(_list_) > 0:
             if isinstance(_list_[0], str):
-                self.dynamic_pinyin_block_list = _list_
+                self.dynamic_pinyin_block_list = [s.split('_')[:-1] for s in _list_]
             else:
                 try:
-                    self.dynamic_pinyin_block_list = [_[_pinyin_idx] for _ in _list_]
+                    self.dynamic_pinyin_block_list = [s[_pinyin_idx].split('_')[:-1] for s in _list_]
                 except Exception as err:
                     print('[set_pinyin_block_list] Error: ', err)
                     return False

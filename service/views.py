@@ -18,6 +18,9 @@ from datetime import date
 import redis
 from configparser import RawConfigParser
 import os
+import threading
+from http.client import HTTPConnection
+import logging
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -465,11 +468,12 @@ class ServiceCommandAPIView(APIView):
     """
     """
     def get(self, request, name):
-        # _service = get_main_service(is_admin=True)
-        _service = get_remote_twice_service()
+        _service = get_main_service(is_admin=True)
+        _nickname_service = get_nickname_filter(is_admin=True)
+        _twice_service = get_remote_twice_service()
         if name == 'aitrainer':
-            chat_rslt = json.loads(_service.get_ai_train_data())['result']
-            nickname_rslt = json.loads(_service.get_nickname_ai_train_data())['result']
+            chat_rslt = json.loads(_twice_service.get_ai_train_data())['result']
+            nickname_rslt = json.loads(_twice_service.get_nickname_ai_train_data())['result']
             # print('result: ', result)
             return JsonResponse({
                 'mode': 'ServiceCommandAPI',
@@ -485,7 +489,7 @@ class ServiceCommandAPIView(APIView):
                 'datetime': datetime.today(),
             })
         elif name == 'nickname_ai_test_result':
-            result = _service.get_nickname_ai_test_result()
+            result = _nickname_service.get_nickname_ai_test_result()
             # print('result: ', result)
             return JsonResponse({
                 'mode': 'ServiceCommandAPI',
@@ -499,29 +503,58 @@ class ServiceCommandAPIView(APIView):
     def post(self, request, name):
         result = None
         data = request.data
+
         try:
-            _service = get_remote_twice_service()
+            # _service = get_remote_twice_service()
+            _service = get_main_service(is_admin=True)
+            _nickname_service = get_nickname_filter(is_admin=True)
+            _twice_service = get_remote_twice_service()
+            
             if name == 'trainstart':
-                result = _service.fit_chat_model()
-
-            elif name == 'testaccuracy':
-
-                _origin = data.get('origin', False)
-                if _origin:
-                    result = _service.get_test_accuracy_by_origin(origin=_origin)
-                else:
-                    result = 'no recive origin: {}'.format(_origin)
-
+                result = _twice_service.fit_chat_model()
+            
             elif name == 'nickname_trainstart':
-                result = _service.fit_nickname_model()
+                result = _twice_service.fit_nickname_model()
 
-            elif name == 'nickname_testaccuracy':
+            elif name == 'testaccuracy' or name == 'nickname_testaccuracy':
+                _busy = _service.is_testing or _nickname_service.is_testing
 
+                if _busy:
+                    return HttpResponseForbidden('currently busy.')
+                
                 _origin = data.get('origin', False)
-                if _origin:
-                    result = _service.get_nickname_test_accuracy_by_origin(origin=_origin)
+                if not _origin:
+                    result = 'not recived origin !!'
+
                 else:
-                    result = 'no recive origin: {}'.format(_origin)
+                    if name == 'testaccuracy':
+                        _service.is_testing = True
+                        fn = 'test_chinese_chat'
+                    else:
+                        _nickname_service.is_testing = True
+                        fn = 'test_chinese_nickname'
+
+                    r = redis.Redis(host='localhost', port=config.get('CHANNEL', 'CHANNEL_PORT'), db=0)
+                    command_dict = {}
+                    command_dict['command'] = fn
+                    command_dict['origin'] = _origin
+                    command_dict_str = json.dumps(command_dict)
+                    r.publish('training_request', command_dict_str)
+
+                    # return JsonResponse({
+                    #     'mode': 'AsyncTrainAPI',
+                    #     'result': 'start {}'.format(fn),
+                    #     'datetime': datetime.today(),
+                    # })
+                    result = '{} ok!! origin: {}'.format(fn, _origin)
+
+            # elif name == 'nickname_testaccuracy':
+
+            #     _origin = data.get('origin', False)
+            #     if _origin:
+            #         result = _service.get_nickname_test_accuracy_by_origin(origin=_origin)
+            #     else:
+            #         result = 'no recive origin: {}'.format(_origin)
         
         except Exception as err:
 
@@ -547,7 +580,7 @@ class TrainServiceAPIView(APIView):
         command_dict = {}
         _service = get_main_service(is_admin=True)
         _nickname_filter = get_nickname_filter(is_admin=True)
-        _busy = _service.is_training or _service.is_testing or _nickname_filter.is_training or _nickname_filter.is_testing
+        _busy = _service.is_training or _nickname_filter.is_training
         try:
             if not _busy:
                 if fn == 'train_chinese_chat' or fn == 'train_chinese_nickname':
@@ -615,6 +648,9 @@ def train_val_complete_handler(request, name):
     if name == 'train_chinese_chat':
         _service = get_main_service(is_admin=True)
         _service.is_training = False
+        _twice_service = get_remote_twice_service()
+
+        _twice_service.notify_chat_train_complete()
 
         return JsonResponse({
                 'mode': 'AsyncTrainAPI',
@@ -624,7 +660,7 @@ def train_val_complete_handler(request, name):
 
     elif name == 'test_chinese_chat':
         _service = get_main_service(is_admin=True)
-        _service.is_testing = False
+        _service.is_testing = False        
 
         return JsonResponse({
                 'mode': 'AsyncTrainAPI',
@@ -634,6 +670,9 @@ def train_val_complete_handler(request, name):
     elif name == 'train_chinese_nickname':
         _service = get_nickname_filter(is_admin=True)
         _service.is_training = False
+        _twice_service = get_remote_twice_service()
+
+        _twice_service.notify_nickname_train_complete()
 
         return JsonResponse({
                 'mode': 'AsyncTrainAPI',
@@ -647,5 +686,50 @@ def train_val_complete_handler(request, name):
         return JsonResponse({
                 'mode': 'AsyncTrainAPI',
                 'result': 'chinese nickname model testing finished',
+                'datetime': datetime.today(),
+            })
+    
+def get_model_file(target):
+    _twice_service = get_remote_twice_service()
+    remote_ip = _twice_service.service_addr
+    port = _twice_service.service_web_port
+    _http_cnn = HTTPConnection(remote_ip, port)
+
+    def _save_file_by_http_response(response, path):
+        with open(path, 'wb+') as f:
+            while True:
+                _buf = response.read()
+                if _buf:
+                    f.write(_buf)
+                else:
+                    break
+
+    _http_cnn.request('GET', '/api/model/' + target)
+    _http_res = _http_cnn.getresponse()
+    if _http_res.status == 200:
+        if target == 'chat':
+            _model_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/ai/_models/chinese_chat_model'
+        elif target == 'nickname':
+            _model_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/ai/_models/chinese_nickname_model'
+        _save_file_by_http_response(response=_http_res, path=_model_path+'/model.h5')
+        logging.info('[sync ai model] Download Remote Chinese {} Model Done.'.format(target))
+    else:
+        logging.error('[sync ai model] Download Remote Chinese {} Model Failed. will retry'.format(target))
+        timer = threading.Timer(5, get_model_file, (target,))
+        timer.start()
+    
+def train_complete_notification_handler(request, name):
+    if name == 'chat_complete':
+        target = 'chat'
+
+    elif name == 'nickname_complete':
+        target = 'nickname'
+
+    timer = threading.Timer(5, get_model_file, (target,))
+    timer.start()
+
+    return JsonResponse({
+                'mode': 'NotificationAPI',
+                'result': 'get ready to sync model',
                 'datetime': datetime.today(),
             })

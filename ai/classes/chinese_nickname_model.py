@@ -31,7 +31,7 @@ from ai.helper import get_chinese_nickname_model_path
 
 from .transformer.encoder import TransformerBlock
 from .transformer.embedding import TokenAndPositionEmbedding
-from .transformer.optimization import WarmUp
+# from .transformer.optimization import WarmUp
 
 class ChineseNicknameModel():
     parameters = {
@@ -72,8 +72,7 @@ class ChineseNicknameModel():
 
     def load_model(self, path):
         self.model = tf.keras.models.load_model(path, custom_objects={'TransformerBlock': TransformerBlock,
-                                                        'TokenAndPositionEmbedding': TokenAndPositionEmbedding,
-                                                        'WarmUp': WarmUp})
+                                                        'TokenAndPositionEmbedding': TokenAndPositionEmbedding})
 
         return self.model
 

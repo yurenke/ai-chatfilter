@@ -444,7 +444,7 @@ class BaseModel():
 class ChineseChatModel(BaseModel):
     def __init__(self):
         self.parameters = {
-            'epochs': 20,
+            'epochs': 3,
             'sentence_maxlen': 20,
             # 'vf_emb_dim': 128,
             # 'token_emb_dim': 384,
@@ -785,3 +785,11 @@ class ChineseNicknameModel(BaseModel):
             print('Testing took {0} sec'.format(str(time.time() - t_start)))
 
             self.write_test_rslt(rslt=result)
+
+def train_exp():
+    model = ChineseChatModel()
+    model.fit_model(verbose=1)
+
+
+if __name__ == '__main__':
+    train_exp()

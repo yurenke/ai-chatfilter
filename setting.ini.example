@@ -2,6 +2,7 @@
 DEBUG = True
 SECRET_KEY = rnojxd^^kaofaw696cj5g_ce($e2uq2xhm*&$05kp0*m&7_4na
 ALLOWED_HOSTS = 127.0.0.1, 172.16.20.120
+DO_NOT_FILTER_ROOMS = T100, T200, M090, M091
 TIME_ZONE = America/Puerto_Rico
 LANGUAGE_MODE = CH
 

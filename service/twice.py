@@ -92,6 +92,11 @@ class TwiceMainService():
         
         return body
 
+    def notify_chat_train_complete(self):
+        return self.request_web(uri='/api/notify/chat_complete')
+    
+    def notify_nickname_train_complete(self):
+        return self.request_web(uri='/api/notify/nickname_complete')
 
     def add_textbook_sentense(self, **args):
         return self.request_web(method='POST', uri='/api/twice/add_textbook_sentense', dataset=args)

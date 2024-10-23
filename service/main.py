@@ -89,6 +89,7 @@ class MainService():
         self.english_parser = EnglishParser()
         self.chat_store = ChatStore()
         self.pre_filter = PreFilter()
+        self.do_not_filter_rooms = settings.DO_NOT_FILTER_ROOMS
 
         if is_admin_server:
             self.is_admin_server = True
@@ -170,6 +171,11 @@ class MainService():
         prediction = 0
         is_suspicious = 0
         # print('receive message :', message)
+
+        if len(self.do_not_filter_rooms) > 1 or self.do_not_filter_rooms[0] != 'None':
+            if room in self.do_not_filter_rooms:
+                return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, st_time=st_time)
+
         if message:
             text, lv, anchor = self.parse_message(message)
             # print('parse_message text: ', text)
@@ -178,28 +184,24 @@ class MainService():
                     suspiciousWords = self.pre_filter.find_alert_words(text)
                     if suspiciousWords:
                         is_suspicious = 1
+
+                    if len(text) > 25:
+                        reason_char = 'too many words'
+                        prediction = self.STATUS_PREDICTION_NOT_ALLOW
+                        return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
+
+                    reason_char = self.find_prefilter_reject_reason_with_nonparsed_msg(text)
+                    if reason_char:
+                        prediction = self.STATUS_PREDICTION_NOT_ALLOW
+                        return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
         
         if user[:3] == 'TST':
             if anchor > 0 or room == 'BG01':
                 return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
 
         if text:
-
-            # check if mix some unknown message
-            if self.lang_mode == self.STATUS_MODE_CHINESE:
-                reason_char = self.find_prefilter_reject_reason_with_nonparsed_msg(text)
-                if reason_char:
-                    prediction = self.STATUS_PREDICTION_NOT_ALLOW
-                    return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
-
             if lv >= self.service_avoid_filter_lv:
-                return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
-
-            # parse to general text
-            if self.lang_mode == self.STATUS_MODE_CHINESE:
-                text = self.trim_text(text)
-                if len(text) == 0 :
-                    return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
+                return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)                
 
             reason_char = self.chat_store.check_same_room_conversation(text, room)
             if reason_char:
@@ -211,6 +213,16 @@ class MainService():
                 prediction = self.STATUS_PREDICTION_SAME_LOGINNAME_IN_SHORTTIME
                 return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
 
+            if self.lang_mode == self.STATUS_MODE_CHINESE:
+                text = self.trim_text(text)
+                if len(text) == 0 :
+                    return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
+                
+                # block sentences with >= 3 spaces
+                if text.count(' ') >= 5:
+                    prediction = self.STATUS_PREDICTION_NOT_ALLOW
+                    reason_char = 'too many spaces'
+                    return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
             #main ai
             prediction, reason_char = self.ai_app.predict(text, lv=lv, with_reason=self.is_admin_server)
             
