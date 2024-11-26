@@ -10,6 +10,7 @@ import aioredis
 
 from asgiref.sync import async_to_sync, sync_to_async
 from trainmodel import ChineseChatModel, ChineseNicknameModel
+# from temptrainmodel import ChineseChatModel, ChineseNicknameModel
 import requests
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)

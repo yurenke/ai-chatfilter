@@ -6,7 +6,7 @@ import numpy as np
 import time, re, logging, json
 from http.client import HTTPConnection
 from service.widgets import printt
-from service.classes.unicode import is_allowed_nickname_character, is_not_allowed_chinese_radicals
+from service.classes.unicode import contains_not_allowed_chars, is_not_allowed_chinese_radicals
 from ai.apps import NicknameAiApp
 from dataparser.apps import MessageParser
 from .models import DynamicNicknamePinyinBlock, ChangeNicknameRequest
@@ -14,9 +14,11 @@ from ai.models import NicknameTextbook
 from .classes.prefilter import PreFilter
 from ai.helper import get_chinese_nickname_model_path
 from ai.classes.translator_pinyin import translate_by_string
-from sklearn.model_selection import train_test_split
+import langid
+from .preprocesstext import cc
 
-
+LANG_OTHERS = 0
+LANG_CH = 1
 
 class NicknameFilter():
     """
@@ -90,83 +92,106 @@ class NicknameFilter():
 
         return True
 
-    def trim_text(self, text):
-        return self.message_parser.trim_only_general_and_chinese(text).strip()
+    # def transform_text(self, text):
+    #     return self.message_parser.transform_full_char_to_half(text).strip()
 
     def think(self, nickname, detail=False):
-        st_time = time.time()
-        reason = ''
+        
 
         if self.lang_mode == self.STATUS_MODE_CHINESE:
 
-            pred, reason = self.think_chinese(nickname=nickname)
+            # pred, reason = self.think_chinese(nickname=nickname)
+            return self.think_chinese(nickname=nickname, detail=detail)
 
         elif self.lang_mode == self.STATUS_MODE_ENGLISH:
 
-            pred, reason = self.think_english(nickname=nickname)
+            # pred, reason = self.think_english(nickname=nickname)
+            return self.think_english(nickname=nickname, detail=detail)
 
-        return self.return_result(prediction=pred, text=nickname, reason=reason, detail=detail, st_time=st_time)
+        # return self.return_result(prediction=pred, text=nickname, reason=reason, detail=detail, st_time=st_time)
 
 
-    def think_chinese(self, nickname):
+    def think_chinese(self, nickname, detail=False):
+        st_time = time.time()
+        pred = self.CODE_OK
+        reason = ''
         digits = 0
-        eng = 0
+        num_of_ch_chars = 0
+        # lang = LANG_OTHERS
         suspicious_pinyin_number_count = 0
 
         if len(nickname) == 0:
-            return self.CODE_INVALID_FORMAT, 'empty'
-
-        text = self.ai_app.model.cc.convert(nickname)
-        text = text.lower()
+            pred = self.CODE_INVALID_FORMAT
+            reason = 'empty'
+            return self.return_result(prediction=pred, text='', reason=reason, detail=detail, st_time=st_time)
         
-        for _ in text:
-            if not is_allowed_nickname_character(_):
-                return self.CODE_INVALID_FORMAT, 'not allowed chars'
-            
-            elif _.isdigit():
+        if contains_not_allowed_chars(nickname):
+            pred = self.CODE_INVALID_FORMAT
+            reason = 'not allowed chars'
+            return self.return_result(prediction=pred, text=nickname, reason=reason, detail=detail, st_time=st_time)
+        
+        text = nickname.encode('utf-8', errors="ignore").decode('utf-8')
+        # text = text.lower()
+        text = cc.convert(text)
+        # lang = LANG_CH if langid.classify(text)[0] == 'zh' else LANG_OTHERS
+        
+        for uchar in text:
+            if uchar.isdigit():
                 digits += 1
+                if digits >= 3:
+                    pred = self.CODE_INVALID_FORMAT
+                    reason = 'number of digits >= 3'
+                    return self.return_result(prediction=pred, text=text, reason=reason, detail=detail, st_time=st_time)
             
-            elif self.regex_is_eng.match(_):
-                eng += 1
-            
-            elif is_not_allowed_chinese_radicals(_) or _ not in self.ai_app.model.vocab:
-                return self.CODE_UNCOMMON_WORDS_BY_RULE, _
-            
-            elif self.pre_filter.is_number_pinyin(_):
-                suspicious_pinyin_number_count += 1
-                if suspicious_pinyin_number_count >= 3: # 3 consecutive chinese words which are suspicious pinyin numbers
-                    return self.CODE_SUSPICIOUS_NUMBERS_BY_RULE, 'suspicious pinyin numbers'
-            
+            # if lang == LANG_CH:
+            if u'\u4e00' <= uchar and uchar <= u'\u9fa5':
+                num_of_ch_chars += 1
+                if is_not_allowed_chinese_radicals(uchar) or uchar not in self.ai_app.model.vocab:
+                    pred = self.CODE_UNCOMMON_WORDS_BY_RULE
+                    reason = uchar
+                    return self.return_result(prediction=pred, text=text, reason=reason, detail=detail, st_time=st_time)
+                
+                elif self.pre_filter.is_number_pinyin(uchar):
+                    suspicious_pinyin_number_count += 1
+                    if suspicious_pinyin_number_count >= 3: # 3 consecutive chinese words which are suspicious pinyin numbers
+                        pred = self.CODE_SUSPICIOUS_NUMBERS_BY_RULE
+                        reason = 'suspicious pinyin numbers'
+                        return self.return_result(prediction=pred, text=text, reason=reason, detail=detail, st_time=st_time)
+                
             else:
                 suspicious_pinyin_number_count = 0
-            
 
-        if digits > 0 and digits + eng >= 3:
-            return self.CODE_INVALID_FORMAT, 'digits+eng >= 3'
+        if num_of_ch_chars > 0 and (len(text) - num_of_ch_chars) >= 3:
+            pred = self.CODE_INVALID_FORMAT
+            reason = 'mixed with chinese, number of non-chinese chars >= 3'
+            return self.return_result(prediction=pred, text=text, reason=reason, detail=detail, st_time=st_time)
 
         reason = self.pre_filter.find_unallow_nickname_eng(text)
         if reason:
-            return self.CODE_BLOCKED_WORDS, reason
+            pred = self.CODE_BLOCKED_WORDS
+            return self.return_result(prediction=pred, text=text, reason=reason, detail=detail, st_time=st_time)
 
-        if digits + eng == len(text):
-            return self.CODE_OK, '' # if all chars are digits or eng, pass over to human judgement now
+        # if digits + eng == len(text):
+        #     return self.CODE_OK, '' # if all chars are digits or eng, pass over to human judgement now
 
-        if eng >= 3:
-            return self.CODE_INVALID_FORMAT, 'with chinese, eng >= 3'
+        # if eng >= 3:
+        #     return self.CODE_INVALID_FORMAT, 'with chinese, eng >= 3'
 
         # check pinyin blocked list
-        reason = self.pre_filter.find_nickname_pinyin_blocked(text)
-        if reason:
-            return self.CODE_BLOCKED_WORDS, reason
+        if num_of_ch_chars > 0:
+            reason = self.pre_filter.find_nickname_pinyin_blocked(text)
+            if reason:
+                pred = self.CODE_BLOCKED_WORDS
+                return self.return_result(prediction=pred, text=text, reason=reason, detail=detail, st_time=st_time)
 
         # model prediction
-        prediction = self.ai_app.predict(text)
+        pred = self.ai_app.predict(text)
 
-        return prediction, ''
+        return self.return_result(prediction=pred, text=text, reason='', detail=detail, st_time=st_time)
 
-
-    def think_english(self, nickname):
-        return 0, ''
+    def think_english(self, nickname, detail=False):
+        st_time = time.time()
+        return self.return_result(prediction=self.CODE_OK, text=nickname, reason='', detail=detail, st_time=st_time)
 
 
     # def set_english_parser(self, parser_instance):
@@ -340,8 +365,8 @@ class NicknameFilter():
             for _nic in nicknames:
                 _text = _nic[0]
                 _status = int(_nic[1])
-                if self.lang_mode == self.STATUS_MODE_CHINESE:
-                    _text = self.trim_text(_text)
+                # if self.lang_mode == self.STATUS_MODE_CHINESE:
+                #     _text = self.transform_text(_text)
                 if _text and _status >= 0 and _text not in _exist_texts:
                     _textbook = NicknameTextbook(
                         origin=origin,

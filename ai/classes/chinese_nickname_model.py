@@ -5,57 +5,40 @@ import re
 import json, logging
 import numpy as np
 
+import time
 import tensorflow as tf
-from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.layers import TimeDistributed, Embedding, Multiply, Add
-from tensorflow.keras.layers import Dense, Input, Concatenate, Dropout, Lambda
-from tensorflow.keras.constraints import MinMaxNorm
-from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
+from tensorflow.keras.layers import Dense, Input
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Dense, Input
+from tensorflow.keras.optimizers import Adam
 
-from sklearn.model_selection import train_test_split
-from sklearn.utils import class_weight
+import transformers
+from transformers import DistilBertTokenizer
+# from opencc import OpenCC
 
-from opencc import OpenCC
-
-import string
-import jieba
-import pandas as pd
-
-from ai import GRAPH_DIR
 from ai.classes.basic_filter import BasicFilter
 from datetime import datetime, timedelta
 
-from ai.helper import get_chinese_nickname_model_path
-# from dataparser.apps import MessageParser
+import string
+import pandas as pd
 
-from .transformer.encoder import TransformerBlock
-from .transformer.embedding import TokenAndPositionEmbedding
-# from .transformer.optimization import WarmUp
+from ai.helper import get_chinese_nickname_model_path, get_chinese_chat_model_path
+# from dataparser.apps import MessageParser
 
 class ChineseNicknameModel():
     parameters = {
-        'sentence_maxlen': 10
-        # 'vf_emb_dim': 128,
-        # 'token_emb_dim': 384,
-        # 'patience': 5,
-        # 'batch_size': 64,
-        # 'proj_clip': 5,
-        # 'lr': 0.0001,
-        # 'lr_decay_steps': 2500,
-        # 'lr_decay_rate': 0.96,
-        # 'num_warmup_steps': 2500,
-        # 'transformer_num_heads': 2,
-        # 'n_transformer_layers': 6,
-        # 'num_classes': 3, # 0, 1, 4
-        # 'dropout_rate': 0.1
+        'lr': 1e-5,
+        # 'sentence_maxlen': 10
+        'sentence_maxlen': 40,
+        'num_classes': 7
     }
 
     def __init__(self):
         self.vocab = {}
         self.load_vocab()
-        self.vf_embeddings = {}
-        self.cc = OpenCC('t2s')
+        self.load_tokenizer()
+        # self.vf_embeddings = {}
+        # self.cc = OpenCC('t2s')
         self.model_path = get_chinese_nickname_model_path()
         # self.parser = MessageParser()
         self.load()
@@ -70,9 +53,32 @@ class ChineseNicknameModel():
                 idx += 1
         print('nickname filter vocab loaded. {} words in total'.format(len(self.vocab)))
 
+    def load_tokenizer(self):
+        self.tokenizer = DistilBertTokenizer.from_pretrained(os.path.join(get_chinese_chat_model_path(), 'tokenizer'), local_files_only=True)
+        print('chinese nickname model tokenzier loaded')
+
+    def build_model(self):
+        max_len = self.parameters['sentence_maxlen']
+        transformer_layer = (
+            transformers.TFDistilBertModel
+            .from_pretrained(os.path.join(get_chinese_chat_model_path(), 'pretrained'), local_files_only=True)
+        )
+    
+        input_word_ids = Input(shape=(max_len,), dtype=tf.int32, name="input_word_ids")
+        sequence_output = transformer_layer(input_word_ids)[0]
+        cls_token = sequence_output[:, 0, :]
+        out = Dense(self.parameters['num_classes'], activation='softmax')(cls_token)
+        
+        self.model = Model(inputs=input_word_ids, outputs=out)
+        self.model.compile(Adam(learning_rate=self.parameters['lr']), loss='sparse_categorical_crossentropy', weighted_metrics=['accuracy'])
+        
+        self.model.summary() 
+
     def load_model(self, path):
-        self.model = tf.keras.models.load_model(path, custom_objects={'TransformerBlock': TransformerBlock,
-                                                        'TokenAndPositionEmbedding': TokenAndPositionEmbedding})
+        if os.path.exists(path):
+            self.model = tf.keras.models.load_model(path, custom_objects={'TFDistilBertModel': transformers.TFDistilBertModel})
+        else:
+            self.build_model()
 
         return self.model
 
@@ -149,42 +155,41 @@ class ChineseNicknameModel():
         return self
 
     def get_details(self, text):
-        transformed_words = self.transform(text)
-        encoded_words = self.get_encode_word(transformed_words)
+        encoded_words = self.get_encode_word(text)
 
-        x = tf.expand_dims(tf.convert_to_tensor(encoded_words), 0)
-        predicted = self.model(x)[0]
+        x = tf.expand_dims(tf.convert_to_tensor(encoded_words), axis=0)
+        predicted = self.model(x, training=False)[0]
         
         return {
-            'transformed_words': transformed_words,
-            'encoded_words': encoded_words.tolist(),
             'predicted_ratios': ['{:2.2%}'.format(_) for _ in list(predicted)]
         }
 
     def predict(self, text):
         possible = 0
-
-        _words = self.transform(text)
-        if len(_words) == 0:
-            return possible
         
-        _result_text = self.get_encode_word(_words)
+        _result_text = self.get_encode_word(text)
 
-        x = tf.expand_dims(tf.convert_to_tensor(_result_text), 0)
-        predicted = self.model(x)[0]
+        x = tf.expand_dims(tf.convert_to_tensor(_result_text), axis=0)
+        predicted = self.model(x, training=False)[0]
 
         possible = np.argmax(predicted)
                 
         return possible
 
-    def transform(self, data):
+    # def transform(self, data):
 
-        text = self.cc.convert(data)
-        return ChineseNicknameModel.tokenize_sentence(text)
+    #     text = self.cc.convert(data)
+    #     return ChineseNicknameModel.tokenize_sentence(text)
 
-    def get_encode_word(self, _words):
+    def get_encode_word(self, text):
 
-        return ChineseNicknameModel.transform_to_id(_words, self.vocab, self.parameters['sentence_maxlen'])
+        enc_di = self.tokenizer(text, return_attention_mask=False, 
+            return_token_type_ids=False,
+            truncation=True,
+            padding='max_length',
+            max_length=self.parameters['sentence_maxlen'])
+
+        return np.array(enc_di['input_ids'])
 
     def get_last_history(self):
         data = {}
@@ -208,44 +213,44 @@ class ChineseNicknameModel():
         
         return data
 
-    @staticmethod
-    def tokenize_sentence(s):
-        def _preprocessing(s):
-            # remove punctuation
-            table = str.maketrans('', '', string.punctuation)
-            s = s.translate(table)
+    # @staticmethod
+    # def tokenize_sentence(s):
+    #     def _preprocessing(s):
+    #         # remove punctuation
+    #         table = str.maketrans('', '', string.punctuation)
+    #         s = s.translate(table)
 
-            # to_lower
-            s = s.lower()
+    #         # to_lower
+    #         s = s.lower()
 
-            # split by digits
-            s = ' '.join(re.split('(\d+)', s))
+    #         # split by digits
+    #         s = ' '.join(re.split('(\d+)', s))
 
-            # seperate each chinese characters
-            s = re.sub(r'[\u4e00-\u9fa5\uf970-\ufa6d]', '\g<0> ', s)
+    #         # seperate each chinese characters
+    #         s = re.sub(r'[\u4e00-\u9fa5\uf970-\ufa6d]', '\g<0> ', s)
 
-            return s
+    #         return s
 
-        tokens = jieba.cut(_preprocessing(s))
+    #     tokens = jieba.cut(_preprocessing(s))
 
-        # transform all digits to special token
-        tokens = ['[NUM]' if w.isdigit() else w for w in tokens]
+    #     # transform all digits to special token
+    #     tokens = ['[NUM]' if w.isdigit() else w for w in tokens]
 
-        # remove space
-        tokens = [w for w in tokens if w != ' ']
+    #     # remove space
+    #     tokens = [w for w in tokens if w != ' ']
 
-        return tokens
+    #     return tokens
 
-    @staticmethod
-    def transform_to_id(tokens_list, vocab, sentence_maxlen):
+    # @staticmethod
+    # def transform_to_id(tokens_list, vocab, sentence_maxlen):
         
-        token_ids = np.zeros((sentence_maxlen,), dtype=np.int32)
-        # token_ids = [0] * sentence_maxlen
-        token_ids[0] = vocab['[CLS]']
-        for i, token in enumerate(tokens_list[: sentence_maxlen - 1]): # -1 for [CLS]
-            if token in vocab:
-                token_ids[i + 1] = vocab[token]
-            else:
-                token_ids[i + 1] = vocab['[UNK]']
+    #     token_ids = np.zeros((sentence_maxlen,), dtype=np.int32)
+    #     # token_ids = [0] * sentence_maxlen
+    #     token_ids[0] = vocab['[CLS]']
+    #     for i, token in enumerate(tokens_list[: sentence_maxlen - 1]): # -1 for [CLS]
+    #         if token in vocab:
+    #             token_ids[i + 1] = vocab[token]
+    #         else:
+    #             token_ids[i + 1] = vocab['[UNK]']
 
-        return token_ids
+    #     return token_ids

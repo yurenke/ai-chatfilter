@@ -76,6 +76,7 @@ class MainAiApp():
     
     def get_details(self, txt):
         details_result = {'text': txt}
+        _detail = {}
         if txt:
             # _i = 0
             # for model in self.loaded_models:
@@ -129,9 +130,11 @@ class NicknameAiApp():
     
     def get_details(self, txt):
         details_result = {'text': txt}
+        _detail = {}
         if txt:
             _detail = self.model.get_details(txt)
-            details_result['details'] = _detail
+        
+        details_result['details'] = _detail
 
         return details_result
 

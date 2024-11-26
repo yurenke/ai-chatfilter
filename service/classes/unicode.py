@@ -42,11 +42,22 @@ allowed_character_regexies = [
 ]
 
 allowed_nickname_character_regexies = [
-    (u'\u0030', u'\u0039'), # general digits
-    (u'\u0041', u'\u005a'), # general upper case English letters
-    (u'\u0061', u'\u007a'), # general lower case English letters
-    (u'\u4e00', u'\u9fa5')  # chinese 
+    # general digits
+    (u'\u0030', u'\u0039'),
+    # general upper case English letters
+    (u'\u0041', u'\u005a'),
+    # general lower case English letters 
+    (u'\u0061', u'\u007a'),
+    # Thai
+    (u'\u0e00', u'\u0e7f'),
+    # chinese
+    (u'\u4e00', u'\u9fa5'),
+    
 ]
+
+viet_chars = set("ĂÂĐÊÔƠƯăâđêôơư"
+                "ÁÀẢÃẠẮẰẲẴẶẤẦẨẪẬÉÈẺẼẸẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌỐỒỔỖỘỚỜỞỠỢÚÙỦŨỤỨỪỬỮỰÝỲỶỸỴ"
+                "áàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ")
 
 
 languages = [
@@ -63,35 +74,28 @@ not_allowed_chinese_radicals = set([
 
 
 def is_allowed_character(uchar):
-    for _ in allowed_character_regexies:
-        _st = _[0]
-        _ed = _[1]
-        if _st <= uchar <= _ed:
-            return True
-    return False
-
-
-def find_not_allowed_chat(text):
-    next_char = ''
-
-    for u in text:
-        if not is_allowed_character(u):
-            next_char += u
-
-    return next_char
-
-def is_allowed_nickname_character(uchar):
+    if uchar in viet_chars:
+        return True
     for _ in allowed_nickname_character_regexies:
         _st = _[0]
         _ed = _[1]
-        if _st <= uchar <= _ed:
-            return True
+        if uchar <= _ed:
+            if uchar >= _st:
+                return True
+            break
     return False
 
-def is_not_allowed_chinese_radicals(uchar):
-    if u'\u4e00' <= uchar and uchar <= u'\u9fa5':
-        return uchar in not_allowed_chinese_radicals
+
+def contains_not_allowed_chars(text):
+    for u in text:
+        if not is_allowed_character(u):
+            return True
+
     return False
+    
+
+def is_not_allowed_chinese_radicals(uchar):
+    return uchar in not_allowed_chinese_radicals
 
 def is_mix_multiple_language(text):
     _num_lan = 0

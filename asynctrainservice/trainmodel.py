@@ -38,6 +38,10 @@ from configparser import RawConfigParser
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CHINESE_CHAT_MODEL_PATH = os.path.join(BASE_DIR, 'ai/_models/chinese_chat_model')
 CHINESE_NICKNAME_MODEL_PATH = os.path.join(BASE_DIR, 'ai/_models/chinese_nickname_model')
+CH_TRAIN_DATA_PATH = os.path.join(BASE_DIR, 'ai/assets/chinese')
+ENG_TRAIN_DATA_PATH = os.path.join(BASE_DIR, 'ai/assets/english')
+THAI_TRAIN_DATA_PATH = os.path.join(BASE_DIR, 'ai/assets/thai')
+VIET_TRAIN_DATA_PATH = os.path.join(BASE_DIR, 'ai/assets/vietnamese')
 
 config = RawConfigParser()
 config.read(BASE_DIR+'/setting.ini')
@@ -395,7 +399,9 @@ class BaseModel():
                 _code -= 0xfee0
 
             if _code == 0x0020 or (_code >= 0x0030 and _code <= 0x0039) or (_code >= 0x0041 and _code <= 0x005a) or (_code >= 0x0061 and _code <= 0x007a):
-                _result += chr(_code).lower()
+                _result += chr(_code)
+            # if _code >= 0x0020 and _code <= 0x007f:
+            #     _result += chr(_code)
             
         return _result
 
@@ -440,25 +446,70 @@ class BaseModel():
 
         return token_ids
     
+def remove_characters_emoji(text):
+    ch_emojis = [':)', '=)', ':(', ':v', '-_-', ':3', '<3', '@@', ':D', ':>', ':">', '=]', ':<', '^_^', '^^', ':-)', '><', '>.<', '~~', ':p', ':-p']
+    for e in ch_emojis:
+        text = text.replace(e, " ")
+    text = re.sub('  +', ' ', text).strip()
+    return text
+
+def replace_url(text):
+    URL_PATTERN = r"""(?i)\b((?:https?:(?:/{1,3}|[a-z0-9%])|[a-z0-9.\-]+[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)/)(?:[^\s()<>{}\[\]]+|\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\))+(?:\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\)|[^\s`!()\[\]{};:'".,<>?«»“”‘’])|(?:(?<!@)[a-z0-9]+(?:[.\-][a-z0-9]+)*[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)\b/?(?!@)))"""
+    text = re.sub(URL_PATTERN, ' URL ', text)
+    text = re.sub('  +', ' ', text).strip()
+    return text
+
+def replace_repeated_character(text):
+    def _replace_rep(m):
+        c,cc = m.groups()
+        return f'{c}'
+    re_rep = re.compile(r'(\S)(\1{2,})')
+    return re_rep.sub(_replace_rep, text)
+
+def remove_special_character(text):
+    text = re.sub(r'\d+', lambda m: " ", text)
+    # text = re.sub(r'\b(\w+)\s+\1\b',' ', text) #remove duplicate number word
+    text = re.sub("[~!@#$%^&*()_+{}“”|:\"<>?`´\-=[\]\;\\\/.,]", " ", text)
+    text = re.sub('  +', ' ', text).strip()
+    return text
+
+def transform_full_char_to_half(text):
+    _result = ''
+
+    for uc in text:
+        _code = ord(uc)
+        if _code == 0x3000 or _code == 0x00a0:
+            # full space to half space
+            _code = 0x0020
+        elif _code > 0xfee0 and _code < 0xffff:
+            # full char to half
+            _code -= 0xfee0
+
+        _result += chr(_code)
+
+    return _result
+    
+def preprocess_text(text):
+    text = text.encode('utf-8', errors="ignore").decode('utf-8')
+    text = text.strip().replace('\n', ' ').replace('\r', ' ')
+    text = transform_full_char_to_half(text)
+    text = re.sub(r'<d>[a-zA-Z]</d>', '', text)
+    text = remove_characters_emoji(text)
+    text = replace_url(text)
+    text = replace_repeated_character(text)
+    text = remove_special_character(text)
+    return text
+    
 
 class ChineseChatModel(BaseModel):
     def __init__(self):
         self.parameters = {
             'epochs': 20,
-            'sentence_maxlen': 20,
-            # 'vf_emb_dim': 128,
-            # 'token_emb_dim': 384,
+            'sentence_maxlen': 40,
             'patience': 4,
             'batch_size': 64,
-            # 'proj_clip': 5,
             'lr': 1e-5,
-            # 'lr_decay_steps': 2500,
-            # 'lr_decay_rate': 0.96,
-            # 'num_warmup_steps': 2500,
-            # 'transformer_num_heads': 2,
-            # 'n_transformer_layers': 6,
             'num_classes': 3, # 0, 1, 4
-            # 'dropout_rate': 0.1
         }
         # self.vocab = {}
         self.latest_origin=''
@@ -504,12 +555,116 @@ class ChineseChatModel(BaseModel):
         self.build_model()
         
         # self.enforced_stop = False
+        # chinese data
+        logging.info('fetching chinese training data...')
         self.data = self.get_train_data(config.get('TRAINING_DATA_TABLE', 'CHAT'))
+        self.data = self.data.dropna()
+        
         self.data = self.transform_data(df=self.data)
-        x = self.regular_encode(self.data.text.values.tolist(), self.parameters['sentence_maxlen'])
-        y = self.data.target.values
+        logging.info('total length of chinese data: {}'.format(len(self.data.index)))
+        x_ch = self.regular_encode(self.data.text.values.tolist(), self.parameters['sentence_maxlen'])
+        y_ch = self.data.target.values
+        x_train, x_val, y_train, y_val = train_test_split(x_ch, y_ch, stratify=y_ch, test_size=0.2)
+        del self.data
 
-        train_dataset, val_dataset, cls_weights = self.get_train_batchs(x, y)
+        # english data
+        logging.info('reading eng training data...')
+        eng_train_df = pd.read_csv(os.path.join(ENG_TRAIN_DATA_PATH, 'eng_train.csv'))
+        eng_train_df = eng_train_df.dropna()
+        eng_val_df = pd.read_csv(os.path.join(ENG_TRAIN_DATA_PATH, 'eng_val.csv'))
+        eng_val_df = eng_val_df.dropna()
+        logging.info('total length of eng training data: {}'.format(len(eng_train_df.index)))
+        logging.info('total length of eng val data: {}'.format(len(eng_val_df.index)))
+        eng_train_df['target'] = eng_train_df['status'].apply(lambda x: 0 if x == 0 else 2)
+        eng_val_df['target'] = eng_val_df['status'].apply(lambda x: 0 if x == 0 else 2)
+
+        x_eng_train = self.regular_encode(eng_train_df.text.values.tolist(), self.parameters['sentence_maxlen'])
+        x_eng_val = self.regular_encode(eng_val_df.text.values.tolist(), self.parameters['sentence_maxlen'])
+        y_eng_train = eng_train_df.target.values
+        y_eng_val = eng_val_df.target.values
+
+        del eng_train_df, eng_val_df
+
+        # thai data
+        logging.info('reading thai training data...')
+        thai_train_df = pd.read_csv(os.path.join(THAI_TRAIN_DATA_PATH, 'thai_train.csv'))
+        thai_train_df = thai_train_df.dropna()
+        thai_val_df = pd.read_csv(os.path.join(THAI_TRAIN_DATA_PATH, 'thai_val.csv'))
+        thai_val_df = thai_val_df.dropna()
+        thai_train_df = thai_train_df[thai_train_df['text'].astype(bool)] # remove rows containing empty string
+        thai_train_df = thai_train_df.drop_duplicates(subset=['text'])
+        logging.info('total length of thai training data: {}'.format(len(thai_train_df.index)))
+
+        thai_val_df = thai_val_df[thai_val_df['text'].astype(bool)] # remove rows containing empty string
+        thai_val_df = thai_val_df.drop_duplicates(subset=['text'])
+        logging.info('total length of thai val data: {}'.format(len(thai_val_df.index)))
+        thai_train_df['target'] = thai_train_df['status'].apply(lambda x: 0 if x == 0 else 2)
+        thai_val_df['target'] = thai_val_df['status'].apply(lambda x: 0 if x == 0 else 2)
+
+        x_thai_train = self.regular_encode(thai_train_df.text.values.tolist(), self.parameters['sentence_maxlen'])
+        x_thai_val = self.regular_encode(thai_val_df.text.values.tolist(), self.parameters['sentence_maxlen'])
+        y_thai_train = thai_train_df.target.values
+        y_thai_val = thai_val_df.target.values
+
+        del thai_train_df, thai_val_df
+
+        # vietnamese data
+        logging.info('reading vietnamese training data...')
+        vi_train_df = pd.read_csv(os.path.join(VIET_TRAIN_DATA_PATH, 'vi_train.csv'))
+        vi_val_df = pd.read_csv(os.path.join(VIET_TRAIN_DATA_PATH, 'vi_val.csv'))
+        vi_train_df = vi_train_df.dropna()
+        vi_val_df = vi_val_df.dropna()
+        vi_train_df = vi_train_df[vi_train_df['text'].astype(bool)] # remove rows containing empty string
+        vi_train_df = vi_train_df.drop_duplicates(subset=['text'])
+        logging.info('total length of viet training data: {}'.format(len(vi_train_df.index)))
+        vi_val_df = vi_val_df[vi_val_df['text'].astype(bool)] # remove rows containing empty string
+        vi_val_df = vi_val_df.drop_duplicates(subset=['text'])
+        logging.info('total length of viet val data: {}'.format(len(vi_val_df.index)))
+
+        vi_train_df['target'] = vi_train_df['status'].apply(lambda x: 0 if x == 0 else 2)
+        vi_val_df['target'] = vi_val_df['status'].apply(lambda x: 0 if x == 0 else 2)
+
+        x_vi_train = self.regular_encode(vi_train_df.text.values.tolist(), self.parameters['sentence_maxlen'])
+        x_vi_val = self.regular_encode(vi_val_df.text.values.tolist(), self.parameters['sentence_maxlen'])
+        y_vi_train = vi_train_df.target.values
+        y_vi_val = vi_val_df.target.values
+
+        del vi_train_df, vi_val_df
+
+        x_train = np.concatenate((x_train, x_eng_train, x_thai_train, x_vi_train), axis=0)
+        x_val = np.concatenate((x_val, x_eng_val, x_thai_val, x_vi_val), axis=0)
+        y_train = np.concatenate((y_train, y_eng_train, y_thai_train, y_vi_train), axis=0)
+        y_val = np.concatenate((y_val, y_eng_val, y_thai_val, y_vi_val), axis=0)
+
+        BATCH_SIZE = self.parameters['batch_size']
+
+        logging.info('number of train data: {}'.format(len(x_train)))
+        logging.info('number of val data: {}'.format(len(x_val)))
+
+        class_weights = [(i, _) for (i, _) in enumerate(class_weight.compute_class_weight(class_weight='balanced',
+                                                 classes=np.unique(y_train),
+                                                 y=y_train))]
+        class_weight_dict = dict(class_weights)
+        logging.info('class weights: {}'.format(class_weight_dict))
+
+        AUTO = tf.data.experimental.AUTOTUNE
+
+        train_dataset = (
+            tf.data.Dataset
+            .from_tensor_slices((x_train, y_train))
+            .shuffle(buffer_size=2048, reshuffle_each_iteration=True)
+            .batch(BATCH_SIZE)
+            .prefetch(AUTO) 
+        )
+        
+
+        val_dataset = (
+            tf.data.Dataset
+            .from_tensor_slices((x_val, y_val))
+            .batch(BATCH_SIZE)
+            .cache()
+            .prefetch(AUTO)
+        )
 
         history = None
 
@@ -529,7 +684,7 @@ class ChineseChatModel(BaseModel):
             # n_steps = x_train.shape[0] // BATCH_SIZE
             history = self.model.fit(
                         x=train_dataset,
-                        class_weight=cls_weights,
+                        class_weight=class_weight_dict,
                         epochs=self.parameters['epochs'],
                         verbose=verbose,
                         validation_data=val_dataset,
@@ -552,7 +707,7 @@ class ChineseChatModel(BaseModel):
             return_token_type_ids=False,
             # pad_to_max_length=True,
             truncation=True,
-            padding=True,
+            padding='max_length',
             max_length=maxlen
         )
     
@@ -564,14 +719,11 @@ class ChineseChatModel(BaseModel):
 
         df = df[df.status != 3]
         df['text'] = df['text'].apply(lambda x: self.cc.convert(x))
-        df['text'] = df['text'].apply(lambda x: ChineseChatModel.trim_only_general_and_chinese(x).strip())
+        df['text'] = df['text'].apply(lambda x: preprocess_text(x))
         df = df[df['text'].astype(bool)] # remove rows containing empty string
         df = df.drop_duplicates(subset=['text'])
             
         df['target'] = df['status'].apply(lambda x: _transform_status(x))
-        # df['tokenized'] = df['text'].apply(lambda x: ChineseChatModel.tokenize_sentence(x))
-        # df['token_ids'] = df['tokenized'].apply(lambda x: ChineseChatModel.transform_to_id(x, self.vocab, self.parameters['sentence_maxlen']))
-        # df = df[['token_ids', 'target']]
         return df
         
         # return x, y
@@ -625,6 +777,7 @@ class ChineseChatModel(BaseModel):
             self.write_test_rslt()
             self.load_model(os.path.join(self.model_path, 'model.h5'))
             self.test_data = self.get_test_data(table_name=config.get('TRAINING_DATA_TABLE', 'CHAT'), origin=origin)
+            self.test_data = self.test_data.dropna()
             self.test_data = self.transform_data(df=self.test_data)
             self.test_data_length = len(self.test_data.index)
             x = self.regular_encode(self.test_data.text.values.tolist(), self.parameters['sentence_maxlen'])
@@ -632,9 +785,12 @@ class ChineseChatModel(BaseModel):
             test_dataset = self.get_test_batchs(x)
 
             _pred = self.model.predict(x=test_dataset, verbose=0)
-            _pred = np.argmax(_pred, axis=1)
 
-            self.test_data['prediction'] = _pred
+            max_probs = np.max(_pred, axis=1)  # 每行的最大值
+            predicted_classes = np.argmax(_pred, axis=1)  # 每行的最大值索引
+            results = np.where(max_probs >= 0.8, predicted_classes, 0)
+
+            self.test_data['prediction'] = results
             self.test_data['b_status'] = self.test_data.target > 0
             self.test_data['b_prediction'] = self.test_data.prediction > 0
             right = self.test_data.loc[self.test_data.b_status == self.test_data.b_prediction]['prediction'].count()
@@ -657,60 +813,170 @@ class ChineseNicknameModel(BaseModel):
     def __init__(self):
         self.parameters = {
             'epochs': 20,
-            'sentence_maxlen': 10,
-            'vf_emb_dim': 128,
-            'token_emb_dim': 384,
+            'sentence_maxlen': 40,
             'patience': 4,
             'batch_size': 64,
-            'proj_clip': 5,
             'lr': 1e-5,
-            # 'lr_decay_steps': 2700,
-            # 'lr_decay_rate': 0.96,
-            # 'num_warmup_steps': 5400,
-            'transformer_num_heads': 2,
-            'n_transformer_layers': 6,
-            'num_classes': 7, # 0, 1, 4
-            'dropout_rate': 0.1
+            'num_classes': 7 # 0, 1, 4
         }
-        self.vocab = {}
+        # self.vocab = {}
         self.latest_origin=''
         self.data = None
         self.test_data = None
-        self.model_path = ''
         self.model = None
-        self.vf_embeddings = {}
         self.cc = OpenCC('t2s')
         self.model_path = CHINESE_NICKNAME_MODEL_PATH
-        self.load_vocab()
+        self.tokenizer = DistilBertTokenizer.from_pretrained(os.path.join(CHINESE_CHAT_MODEL_PATH, 'tokenizer'), local_files_only=True)
         # self.load_model(os.path.join(self.model_path, 'model.h5'))
 
-    def load_vocab(self):
-        with open(os.path.join(self.model_path, "nickname_filter_vocab.txt"), encoding='UTF-8') as f:
-            idx = 0
-            for line in f:
-                word = line.strip()
-                self.vocab[word] = idx
-                idx += 1
-        logging.info('vocab loaded. {} words in total'.format(len(self.vocab)))
+    # def load_vocab(self):
+    #     with open(os.path.join(self.model_path, "nickname_filter_vocab.txt"), encoding='UTF-8') as f:
+    #         idx = 0
+    #         for line in f:
+    #             word = line.strip()
+    #             self.vocab[word] = idx
+    #             idx += 1
+    #     logging.info('vocab loaded. {} words in total'.format(len(self.vocab)))
 
-    def load_pretrained_embedding_weights(self):
-        self.vf_embeddings = {}
-        # load variation family-enhanced graph embedding
-        with open(os.path.join(BASE_DIR, "ai/assets/chinese/graph_emb/vf_emb_common.txt"), encoding='UTF-8') as f:
-            # skip header
-            next(f)
-            for line in f:
-                word, coefs = line.split(maxsplit=1)
-                coefs = np.fromstring(coefs, "f", sep=" ")
-                self.vf_embeddings[word] = coefs
+    # def load_pretrained_embedding_weights(self):
+    #     self.vf_embeddings = {}
+    #     # load variation family-enhanced graph embedding
+    #     with open(os.path.join(BASE_DIR, "ai/assets/chinese/graph_emb/vf_emb_common.txt"), encoding='UTF-8') as f:
+    #         # skip header
+    #         next(f)
+    #         for line in f:
+    #             word, coefs = line.split(maxsplit=1)
+    #             coefs = np.fromstring(coefs, "f", sep=" ")
+    #             self.vf_embeddings[word] = coefs
+    def load_model(self, path):
+        if os.path.exists(path):
+            self.model = tf.keras.models.load_model(path, custom_objects={'TFDistilBertModel': transformers.TFDistilBertModel})
+        else:
+            self.build_model()
+
+        return self.model
+    
+    def build_model(self):
+        max_len = self.parameters['sentence_maxlen']
+        transformer_layer = (
+            transformers.TFDistilBertModel
+            .from_pretrained(os.path.join(CHINESE_CHAT_MODEL_PATH, 'pretrained'), local_files_only=True)
+        )
+    
+        input_word_ids = Input(shape=(max_len,), dtype=tf.int32, name="input_word_ids")
+        sequence_output = transformer_layer(input_word_ids)[0]
+        cls_token = sequence_output[:, 0, :]
+        out = Dense(self.parameters['num_classes'], activation='softmax')(cls_token)
+        
+        self.model = Model(inputs=input_word_ids, outputs=out)
+        self.model.compile(Adam(learning_rate=self.parameters['lr']), loss='sparse_categorical_crossentropy', weighted_metrics=['accuracy'])
+        
+        self.model.summary() 
 
     def fit_model(self, verbose=0, callback=None):
         self.build_model()
-        # self.enforced_stop = False
+        # chinese data
+        logging.info('fetching chinese training data...')
         self.data = self.get_train_data(config.get('TRAINING_DATA_TABLE', 'NICKNAME'))
-        self.data = self.transform_data(df=self.data)
+        self.data = self.data[['text', 'status']]
+        self.data = self.data.dropna()
 
-        train_dataset, val_dataset, cls_weights = self.get_train_batchs()
+        self.data = self.transform_data(df=self.data)
+        logging.info('total length of chinese data: {}'.format(len(self.data.index)))
+        x_ch = self.regular_encode(self.data.text.values.tolist(), self.parameters['sentence_maxlen'])
+        y_ch = self.data.status.values
+
+        x_train, x_val, y_train, y_val = train_test_split(x_ch, y_ch, stratify=y_ch, test_size=0.2)
+
+        del self.data
+
+        # english data
+        logging.info('reading eng training data...')
+        eng_train_df = pd.read_csv(os.path.join(ENG_TRAIN_DATA_PATH, 'eng_train.csv'))
+        eng_train_df = eng_train_df.dropna()
+        eng_val_df = pd.read_csv(os.path.join(ENG_TRAIN_DATA_PATH, 'eng_val.csv'))
+        eng_val_df = eng_val_df.dropna()
+        logging.info('total length of eng training data: {}'.format(len(eng_train_df.index)))
+        logging.info('total length of eng val data: {}'.format(len(eng_val_df.index)))
+        x_eng_train = self.regular_encode(eng_train_df.text.values.tolist(), self.parameters['sentence_maxlen'])
+        x_eng_val = self.regular_encode(eng_val_df.text.values.tolist(), self.parameters['sentence_maxlen'])
+        y_eng_train = eng_train_df.status.values
+        y_eng_val = eng_val_df.status.values
+
+        del eng_train_df, eng_val_df
+
+        # thai data
+        logging.info('reading thai training data...')
+        thai_train_df = pd.read_csv(os.path.join(THAI_TRAIN_DATA_PATH, 'thai_train.csv'))
+        thai_val_df = pd.read_csv(os.path.join(THAI_TRAIN_DATA_PATH, 'thai_val.csv'))
+        thai_train_df = thai_train_df.dropna()
+        thai_val_df = thai_val_df.dropna()
+        thai_train_df = thai_train_df[thai_train_df['text'].astype(bool)] # remove rows containing empty string
+        thai_train_df = thai_train_df.drop_duplicates(subset=['text'])
+        logging.info('total length of thai training data: {}'.format(len(thai_train_df.index)))
+        thai_val_df = thai_val_df[thai_val_df['text'].astype(bool)] # remove rows containing empty string
+        thai_val_df = thai_val_df.drop_duplicates(subset=['text'])
+        logging.info('total length of thai val data: {}'.format(len(thai_val_df.index)))
+        x_thai_train = self.regular_encode(thai_train_df.text.values.tolist(), self.parameters['sentence_maxlen'])
+        x_thai_val = self.regular_encode(thai_val_df.text.values.tolist(), self.parameters['sentence_maxlen'])
+        y_thai_train = thai_train_df.status.values
+        y_thai_val = thai_val_df.status.values
+
+        del thai_train_df, thai_val_df
+
+        # Vietnamese data
+        logging.info('reading vietnamese training data...')
+        vi_train_df = pd.read_csv(os.path.join(VIET_TRAIN_DATA_PATH, 'vi_train.csv'))
+        vi_val_df = pd.read_csv(os.path.join(VIET_TRAIN_DATA_PATH, 'vi_val.csv'))
+        vi_train_df = vi_train_df.dropna()
+        vi_val_df = vi_val_df.dropna()
+        vi_train_df = vi_train_df[vi_train_df['text'].astype(bool)] # remove rows containing empty string
+        vi_train_df = vi_train_df.drop_duplicates(subset=['text'])
+        logging.info('total length of viet training data: {}'.format(len(vi_train_df.index)))
+        vi_val_df = vi_val_df[vi_val_df['text'].astype(bool)] # remove rows containing empty string
+        vi_val_df = vi_val_df.drop_duplicates(subset=['text'])
+        logging.info('total length of viet val data: {}'.format(len(vi_val_df.index)))
+        x_vi_train = self.regular_encode(vi_train_df.text.values.tolist(), self.parameters['sentence_maxlen'])
+        x_vi_val = self.regular_encode(vi_val_df.text.values.tolist(), self.parameters['sentence_maxlen'])
+        y_vi_train = vi_train_df.status.values
+        y_vi_val = vi_val_df.status.values
+
+        del vi_train_df, vi_val_df
+
+        x_train = np.concatenate((x_train, x_eng_train, x_thai_train, x_vi_train), axis=0)
+        x_val = np.concatenate((x_val, x_eng_val, x_thai_val, x_vi_val), axis=0)
+        y_train = np.concatenate((y_train, y_eng_train, y_thai_train, y_vi_train), axis=0)
+        y_val = np.concatenate((y_val, y_eng_val, y_thai_val, y_vi_val), axis=0)
+
+        BATCH_SIZE = self.parameters['batch_size']
+
+        logging.info('number of train data: {}'.format(len(x_train)))
+        logging.info('number of val data: {}'.format(len(x_val)))
+
+        class_weights = [(i, _) for (i, _) in enumerate(class_weight.compute_class_weight(class_weight='balanced',
+                                                 classes=np.unique(y_train),
+                                                 y=y_train))]
+        class_weight_dict = dict(class_weights)
+        logging.info('class weights: {}'.format(class_weight_dict))
+
+        AUTO = tf.data.experimental.AUTOTUNE
+
+        train_dataset = (
+            tf.data.Dataset
+            .from_tensor_slices((x_train, y_train))
+            .shuffle(buffer_size=2048, reshuffle_each_iteration=True)
+            .batch(BATCH_SIZE)
+            .prefetch(AUTO) 
+        )
+        
+
+        val_dataset = (
+            tf.data.Dataset
+            .from_tensor_slices((x_val, y_val))
+            .batch(BATCH_SIZE)
+            .cache()
+            .prefetch(AUTO)
+        )
 
         history = None
 
@@ -729,7 +995,7 @@ class ChineseNicknameModel(BaseModel):
 
             history = self.model.fit(
                         x=train_dataset,
-                        class_weight=cls_weights,
+                        class_weight=class_weight_dict,
                         epochs=self.parameters['epochs'],
                         verbose=verbose,
                         validation_data=val_dataset,
@@ -740,20 +1006,37 @@ class ChineseNicknameModel(BaseModel):
             self.save(history=history.history, is_training=False, eta=0, origin=self.latest_origin)
 
         except Exception as err:
-            logging.error('Exception on Fit chat model.')
+            logging.error('Exception on Fit nickname model.')
             logging.error(err)
         
         return history
+    
+    def regular_encode(self, texts, maxlen=512):
+        enc_di = self.tokenizer.batch_encode_plus(
+            texts, 
+            return_attention_mask=False, 
+            return_token_type_ids=False,
+            # pad_to_max_length=True,
+            truncation=True,
+            padding='max_length',
+            max_length=maxlen
+        )
+    
+        return np.array(enc_di['input_ids'])
 
     def transform_data(self, df):
-        df.rename(columns={'status': 'target'}, inplace=True)
         df['text'] = df['text'].apply(lambda x: self.cc.convert(x))
+        df['text'] = df['text'].apply(lambda x: preprocess_text(x))
+        # df['text'] = df['text'].apply(lambda x: ChineseChatModel.trim_only_general_and_chinese(x).strip())
         df = df[df['text'].astype(bool)] # remove rows containing empty string
         df = df.drop_duplicates(subset=['text'])
-        df['tokenized'] = df['text'].apply(lambda x: ChineseNicknameModel.tokenize_sentence(x))
-        df['token_ids'] = df['tokenized'].apply(lambda x: ChineseNicknameModel.transform_to_id(x, self.vocab, self.parameters['sentence_maxlen']))
-        df = df[['token_ids', 'target']]
         return df
+    
+    def get_test_batchs(self, x):
+        BATCH_SIZE = self.parameters['batch_size']
+        test_dataset = tf.data.Dataset.from_tensor_slices(x).batch(BATCH_SIZE)
+        return test_dataset
+
 
     def test_by_origin(self, origin=''):
         if origin:
@@ -763,13 +1046,15 @@ class ChineseNicknameModel(BaseModel):
             self.test_data = self.get_test_data(table_name=config.get('TRAINING_DATA_TABLE', 'NICKNAME'), origin=origin)
             self.test_data = self.transform_data(df=self.test_data)
             self.test_data_length = len(self.test_data.index)
-            test_dataset = self.get_test_batchs()
+            x = self.regular_encode(self.test_data.text.values.tolist(), self.parameters['sentence_maxlen'])
+            # y = df.target.values
+            test_dataset = self.get_test_batchs(x)
 
             _pred = self.model.predict(x=test_dataset, verbose=0)
             _pred = np.argmax(_pred, axis=1)
 
             self.test_data['prediction'] = _pred
-            self.test_data['b_status'] = self.test_data.target > 0
+            self.test_data['b_status'] = self.test_data.status > 0
             self.test_data['b_prediction'] = self.test_data.prediction > 0
             right = self.test_data.loc[self.test_data.b_status == self.test_data.b_prediction]['prediction'].count()
             del_right = self.test_data.loc[(self.test_data.b_prediction) & (self.test_data.b_status)]['prediction'].count()

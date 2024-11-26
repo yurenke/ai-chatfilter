@@ -5,13 +5,18 @@ from ai.classes.translator_pinyin import translate_by_string
 
 regex_chinese = re.compile('[\u4e00-\u9fa5]+')
 regex_korea = re.compile('[\uac00-\ud7a3]+')
+
 allowed_character_regexies = [
-    (u'\u0020', u'\u0082'), # general english, digits and symbol
+    # Basic Latin
+    (u'\u0020', u'\u007f'), 
+    # Thai
+    (u'\u0e00', u'\u0e7f'),
     # (u'\u23e9', u'\u23f9'), # symbol
     # (u'\u26bd', u'\u270d'), # symbol
     (u'\u3001', u'\u3002'), # dot symbol
     # (u'\u3105', u'\u3129'), # zuyin
-    (u'\u4e00', u'\u9fa5'), # chinese
+    # chinese
+    (u'\u4e00', u'\u9faf'),
     # (u'\u3041', u'\u30ff'), # japanese
     # (u'\u1100', u'\u11f9'), # korea yin
     # (u'\u3131', u'\u318e'), # korea yin 2
@@ -20,6 +25,10 @@ allowed_character_regexies = [
     # (u'\U0001f600', u'\U0001f64f'), # faces
     # (u'\U0001f910', u'\U0001f9ff'), # faces
 ]
+
+viet_chars = set("ĂÂĐÊÔƠƯăâđêôơư"
+                "ÁÀẢÃẠẮẰẲẴẶẤẦẨẪẬÉÈẺẼẸẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌỐỒỔỖỘỚỜỞỠỢÚÙỦŨỤỨỪỬỮỰÝỲỶỸỴ"
+                "áàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ₫")
 
 number_pinyin_set = set([
     'yi',
@@ -37,6 +46,8 @@ number_pinyin_set = set([
 allowed_number_units_chinese_chars = set(['十', '拾', '百', '千', '万', '亿'])
 must_block_pinyin = [['gong', 'zhong'], ['gong', 'zong'], ['pin', 'yin'], ['pan', 'yin'], ['ping', 'yin'], ['pin', 'ying'], ['pan', 'ying'], ['ping', 'ying'], ['wei', 'xin']]
 one_word_block_pinyin = ['gong', 'zong', 'zhong', 'hao', 'pin', 'ping', 'pan', 'wei', 'xin', 'yin', 'ying']
+
+ch_emojis = [':)', '=)', ':(', ':v', '-_-', ':3', '<3', '@@', ':D', ':>', ':">', '=]', ':<', '^_^', '^^', ':-)', '><', '>.<', '~~', ':p', ':-p']
 
 
 
@@ -64,7 +75,7 @@ class PreFilter():
             if not self.is_allowed_character(u):
                 next_char += u
 
-        return next_char
+        return next_char, text
 
     
     def find_korea_mixed(self, text):
@@ -267,6 +278,9 @@ class PreFilter():
 
 
     def is_allowed_character(self, uchar):
+        if uchar in viet_chars:
+            return True
+
         for _ in allowed_character_regexies:
             _st = _[0]
             _ed = _[1]
@@ -293,10 +307,15 @@ class PreFilter():
             r'(ღ♡‿♡ღ)',
             r'(○^㉨^)',
             r'≧∇≦',
-            r'￣▽￣',
+            r'￣▽￣'
         ]
         for _r in regexs:
             _text = re.sub(_r, '', _text)
+
+        for e in ch_emojis:
+            _text = _text.replace(e, " ")
+        _text = re.sub('  +', ' ', _text).strip()
+        
         return _text
 
 

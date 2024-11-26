@@ -297,7 +297,9 @@ class MessageParser():
             # if _code >= 0x3000 and _code <= 0x303f: continue
 
             if _code == 0x0020 or (_code >= 0x0030 and _code <= 0x0039) or (_code >= 0x0041 and _code <= 0x005a) or (_code >= 0x0061 and _code <= 0x007a):
-                _result += chr(_code).lower()
+                _result += chr(_code)
+            # if _code >= 0x0020 and _code <= 0x007f:
+            #     _result += chr(_code)
 
             # if (_code < 0x0030 and _code != 0x0020) or 
             #     _code > 0x7f or 
@@ -313,7 +315,22 @@ class MessageParser():
             #     _result += chr(_code).lower()
         
         return _result
+    
+    def transform_full_char_to_half(self, string):
+        _result = ''
 
+        for uc in string:
+            _code = ord(uc)
+            if _code == 0x3000 or _code == 0x00a0:
+                # full space to half space
+                _code = 0x0020
+            elif _code > 0xfee0 and _code < 0xffff:
+                # full char to half
+                _code -= 0xfee0
+
+            _result += chr(_code)
+
+        return _result
 
 
 class JieBaDictionary():

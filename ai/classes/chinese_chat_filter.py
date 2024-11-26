@@ -12,14 +12,14 @@ from tensorflow.keras.optimizers import Adam
 
 import transformers
 from transformers import DistilBertTokenizer
-from opencc import OpenCC
+# from opencc import OpenCC
 
 from ai.classes.basic_filter import BasicFilter
 from datetime import datetime, timedelta
 
 from ai.helper import get_chinese_chat_model_path
 
-from dataparser.apps import MessageParser
+# from dataparser.apps import MessageParser
 
 # import tensorflow as tf
 # from tensorflow.keras import backend as K
@@ -49,15 +49,16 @@ from ai.helper import get_chinese_chat_model_path
 class ChineseChatFilter(BasicFilter):
     parameters = {
         'lr': 1e-5,
-        'sentence_maxlen': 20,
+        # 'sentence_maxlen': 20,
+        'sentence_maxlen': 40,
         'num_classes': 3
     }
     enforced_stop = False
 
     def __init__(self, load_folder=None):
-        self.cc = OpenCC('t2s')
+        # self.cc = OpenCC('t2s')
         self.load_tokenizer()
-        self.parser = MessageParser()
+        # self.parser = MessageParser()
         super().__init__(load_folder=load_folder)
 
     def load_tokenizer(self):
@@ -183,7 +184,10 @@ class ChineseChatFilter(BasicFilter):
         predicted = self.model(x, training=False)[0]
 
         possible = np.argmax(predicted)
+        max_prob = predicted[possible]
         # possible = 1 if predicted >= 0.5 else 0
+        if max_prob < 0.8:
+            possible = 0
 
         possible = possible if possible < 2 else 4
                 
@@ -191,7 +195,7 @@ class ChineseChatFilter(BasicFilter):
 
     def get_encode_word(self, text):
         
-        text = self.cc.convert(text)
+        # text = self.cc.convert(text)
         enc_di = self.tokenizer(text, return_attention_mask=False, 
             return_token_type_ids=False,
             truncation=True,

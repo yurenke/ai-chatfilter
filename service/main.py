@@ -18,15 +18,20 @@ from tensorflow.keras.callbacks import Callback
 import numpy as np
 import time, re, logging, json, threading
 from os import path, listdir
+import langid
 
 from .classes.prefilter import PreFilter
 # from .classes.fuzzycenter import FuzzyCenter
 from .classes.chatstore import ChatStore
 from .models import GoodSentence, BlockedSentence, AnalyzingData, UnknownWord, ChangeNicknameRequest, Blockword, DynamicPinyinBlock, DynamicAlertWords
+from .preprocesstext import preprocess_chat_text_for_vi, preprocess_chat_text_for_thai_and_others, preprocess_chat_text_for_ch
+from .preprocesstext import cc
 
 
-
-
+LANG_CH = 0
+LANG_THAI = 1
+LANG_VI = 2
+LANG_OTHERS = 3
 
 class MainService():
     """
@@ -51,6 +56,7 @@ class MainService():
     train_thread = None
 
     
+
     STATUS_PREDICTION_NO_MSG = 0
     STATUS_PREDICTION_ADVERTISING = 1
     STATUS_PREDICTION_HUMAN_DELETE = 3
@@ -154,8 +160,8 @@ class MainService():
         return _, lv, ac
 
 
-    def trim_text(self, text):
-        return self.message_parser.trim_only_general_and_chinese(text).strip()
+    def transform_text(self, text):
+        return self.message_parser.transform_full_char_to_half(text).strip()
 
 
     def think(self, message, user = '', room = '', silence=False, detail=False):
@@ -170,6 +176,8 @@ class MainService():
         reason_char = ''
         prediction = 0
         is_suspicious = 0
+        lang = LANG_OTHERS
+
         # print('receive message :', message)
 
         if len(self.do_not_filter_rooms) > 1 or self.do_not_filter_rooms[0] != 'None':
@@ -178,6 +186,35 @@ class MainService():
 
         if message:
             text, lv, anchor = self.parse_message(message)
+            
+            # remove <d>[a-zA-Z]</d> pattern
+            if text:
+                # remove UI emoji first
+                text = re.sub(r'<d>[a-zA-Z]</d>', '', text)
+
+                if text:
+                # check if text contains forbidden characters first
+                    reason_char, text = self.pre_filter.find_not_allowed_chat(text)
+                    if reason_char:
+                        prediction = self.STATUS_PREDICTION_NOT_ALLOW
+                        return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
+
+                    if text:
+                        text = text.encode('utf-8', errors="ignore").decode('utf-8')
+                        text = text.strip().replace('\n', ' ').replace('\r', ' ')
+                        text = cc.convert(text)
+                        # detect the language
+                        tmp = langid.classify(text)[0]
+                        if tmp == 'zh':
+                            lang = LANG_CH
+                        elif tmp == 'th':
+                            lang = LANG_THAI
+                        elif tmp == 'vi':
+                            lang = LANG_VI
+                        else:
+                            lang = LANG_OTHERS
+
+
             # print('parse_message text: ', text)
             if self.lang_mode == self.STATUS_MODE_CHINESE:
                 if text:
@@ -185,7 +222,7 @@ class MainService():
                     if suspiciousWords:
                         is_suspicious = 1
 
-                    if len(text) > 25:
+                    if lang == LANG_CH and len(text) > 25:
                         reason_char = 'too many words'
                         prediction = self.STATUS_PREDICTION_NOT_ALLOW
                         return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
@@ -194,6 +231,16 @@ class MainService():
                     if reason_char:
                         prediction = self.STATUS_PREDICTION_NOT_ALLOW
                         return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
+                    
+                    if lang == LANG_CH:
+                        reason_char = self.pre_filter.find_unallow_eng(text)
+                        if reason_char:
+                            prediction = self.STATUS_PREDICTION_NOT_ALLOW
+                            return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
+                        reason_char = self.pre_filter.find_pinyin_blocked(text)
+                        if reason_char:
+                            prediction = self.STATUS_PREDICTION_NOT_ALLOW
+                            return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
         
         if user[:3] == 'TST':
             if anchor > 0 or room == 'BG01':
@@ -214,15 +261,24 @@ class MainService():
                 return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
 
             if self.lang_mode == self.STATUS_MODE_CHINESE:
-                text = self.trim_text(text)
+                text = self.transform_text(text)
+                
+                if lang == LANG_CH:
+                    # block sentences with >= 5 spaces
+                    if text.count(' ') >= 5:
+                        prediction = self.STATUS_PREDICTION_NOT_ALLOW
+                        reason_char = 'too many spaces'
+                        return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
+                    text = preprocess_chat_text_for_ch(text)
+                elif lang == LANG_VI:
+                    text = preprocess_chat_text_for_vi(text)
+                else:
+                    text = preprocess_chat_text_for_thai_and_others(text)
+
                 if len(text) == 0 :
                     return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
                 
-                # block sentences with >= 3 spaces
-                if text.count(' ') >= 5:
-                    prediction = self.STATUS_PREDICTION_NOT_ALLOW
-                    reason_char = 'too many spaces'
-                    return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
+                
             #main ai
             prediction, reason_char = self.ai_app.predict(text, lv=lv, with_reason=self.is_admin_server)
             
@@ -247,7 +303,6 @@ class MainService():
         detail_data = {}
         
         if detail:
-
             detail_data = self.ai_app.get_details(text)
 
         ed_time = time.time()
@@ -261,6 +316,7 @@ class MainService():
         result['is_suspicious'] = is_suspicious
         result['detail'] = detail_data
         result['spend_time'] = ed_time - st_time
+        # logging.info('think spend time = {}'.format(result['spend_time']))
         if result['spend_time'] > 0.2:
             logging.error('Spend Time Of Think Result = {}'.format(result['spend_time']))
         logging.debug('Think Result [ msg: {} prediction: {} is_suspicious: {} time: {} ] '.format(result['message'], result['prediction'], result['is_suspicious'], result['spend_time']))
@@ -271,11 +327,11 @@ class MainService():
         # print('find_prefilter_reject_reason_with_nonparsed_msg: ', msg)
         methods = [
             self.pre_filter.find_suspect_digits_symbol,
-            self.pre_filter.find_not_allowed_chat,
+            # self.pre_filter.find_not_allowed_chat,
             # self.pre_filter.find_korea_mixed,
             self.pre_filter.find_emoji_word_mixed,
-            self.pre_filter.find_unallow_eng,
-            self.pre_filter.find_pinyin_blocked,
+            # self.pre_filter.find_unallow_eng,
+            # self.pre_filter.find_pinyin_blocked,
         ]
         for m in methods:
             r = m(msg)
@@ -593,8 +649,16 @@ class MainService():
                 _status = int(_sen[1])
                 _weight = int(_sen[2]) if _sen[2] else 1
                 _text, _lv, _a = self.parse_message(_text)
-                if self.lang_mode == self.STATUS_MODE_CHINESE:
-                    _text = self.trim_text(_text)
+                _text = self.transform_text(_text)
+                # if self.lang_mode == self.STATUS_MODE_CHINESE:
+                #     _text = self.transform_text(_text)
+                #     lang = langid.classify(_text)[0]
+                #     if lang == 'zh':
+                #         _text = preprocess_chat_text_for_ch(_text)
+                #     elif lang == 'vi':
+                #         _text = preprocess_chat_text_for_vi(_text)
+                #     else:
+                #         _text = preprocess_chat_text_for_thai_and_others(_text)
                 if _text and _status >= 0 and _text not in _exist_texts:
                     _textbook = TextbookSentense(
                         origin=origin,
