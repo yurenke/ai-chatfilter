@@ -218,7 +218,7 @@ class PreFilter():
     
     def find_unallow_eng(self, text):
         # 
-        _unallow_engs = ['wei']
+        _unallow_engs = ['wei', 'AG', 'ag']
         for _ in _unallow_engs:
             if _ in text:
                 return _
