@@ -12,12 +12,16 @@ from asgiref.sync import async_to_sync, sync_to_async
 from trainmodel import ChineseChatModel, ChineseNicknameModel
 # from temptrainmodel import ChineseChatModel, ChineseNicknameModel
 import requests
+import tensorflow as tf
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 config = RawConfigParser()
 config.read(BASE_DIR+'/setting.ini')
+
+tf.config.threading.set_intra_op_parallelism_threads(5)  # 單個操作內部最多使用 5 個線程
+tf.config.threading.set_inter_op_parallelism_threads(2)  # 操作之間最多使用 2 個線程
 
 logging_level = logging.INFO
 logging.basicConfig(format='[%(levelname)s]%(asctime)s %(message)s', datefmt='(%m/%d) %I:%M:%S %p :: ', level=logging_level)

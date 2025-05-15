@@ -394,6 +394,7 @@ class NicknameFilter():
             if isinstance(text, list):
                 _dps = []
                 for _ in text:
+                    _ = cc.convert(_)
                     _py = translate_by_string(_)
                     _dps.append(DynamicNicknamePinyinBlock(text=_, pinyin=_py))
                 DynamicNicknamePinyinBlock.objects.bulk_create(_dps, batch_size=100)
@@ -402,6 +403,7 @@ class NicknameFilter():
                     DynamicNicknamePinyinBlock.objects.filter(id__in=_ids).delete()
                 return [model_to_dict(_) for _ in _dps]
             else:
+                text = cc.convert(text)
                 _py = translate_by_string(text)
                 qs = DynamicNicknamePinyinBlock.objects.filter(pinyin=_py)
                 if len(qs) == 0:

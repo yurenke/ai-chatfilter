@@ -68,6 +68,12 @@
             position: relative;
         }
 
+        #alphanum-block-list {
+            height: 86%;
+            overflow: auto;
+            max-height: 80vh;
+        }
+
         #pinyin-block-list {
             height: 86%;
             overflow: auto;
@@ -134,6 +140,11 @@
             vertical-align: bottom;
             margin-right: 24px;
             cursor: pointer;
+        }
+
+        #alphanum-block-input {
+            height: 34px;
+            width: 280px;
         }
 
         #pinyin-block-input {
@@ -363,17 +374,38 @@
             <ul>
                 <li><a href="#" onclick="naviTo('live-chat-zone');" title="移動到[即時聊天]頁">即時聊天</a></li>
                 <li><a href="#" onclick="naviTo('live-nickname-request-zone');" title="移動到[暱稱修改審核判定]頁">暱稱修改審核判定</a></li>
-                <li><a href="#" onclick="naviTo('pinyin-block-zone');" title="移動到[即時禁詞]頁">即時禁詞(拼音)</a></li>
+                <li><a href="#" onclick="naviTo('alphanum-block-zone');" title="移動到[聊天即時禁詞(字串比對)]頁">聊天即時禁詞(字串比對)</a></li>
+                <li><a href="#" onclick="naviTo('pinyin-block-zone');" title="移動到[聊天即時禁詞(中文拼音)]頁">聊天即時禁詞(中文拼音)</a></li>
                 <li><a href="#" onclick="naviTo('alert-words-zone');" title="移動到[即時告警關鍵詞]頁">即時告警關鍵詞</a></li>          
-                <li><a href="#" onclick="naviTo('nickname-pinyin-block-zone');" title="移動到[暱稱即時禁詞]頁">暱稱即時禁詞(拼音)</a></li>
+                <li><a href="#" onclick="naviTo('nickname-pinyin-block-zone');" title="移動到[暱稱即時禁詞(中文拼音)]頁">暱稱即時禁詞(中文拼音)</a></li>
                 <li><a href="#" onclick="naviTo('train-center-zone');" title="移動到[訓練資料中心]頁">訓練資料中心</a></li>
                 <li><a href="#" onclick="naviTo('nickname-train-center-zone');" title="移動到[暱稱訓練資料中心]頁">暱稱訓練資料中心</a></li>
             </ul>
         </div>
         <div class="right-zone">
+            <div id="alphanum-block-zone" style="height: 100%; display: none;">
+                <div class="header">
+                    <h2>聊天即時禁詞(字串比對)</h2>
+                    <div>
+                        <input type="text" id="alphanum-block-input"/>
+                        <button class="pbz-btn" id="btn-alphanum-block-local-search" title="模糊匹配搜尋已存禁詞">搜尋</button>
+                        <button class="pbz-btn" id="btn-add-alphanum-block" title="新增禁詞">新增</button>
+                    </div>
+                    <div class="absolute-right">
+                        <button class="font-btn" id="btn-download-alphanum-block-list" title="下載現有禁詞">⏬</button>
+                        <button class="font-btn" id="btn-alphanum-block-refresh" title="刷新後台禁詞到 Tcp Socket 服務">🔄</button>
+                    </div>
+                </div>
+                <div class="content">
+                    <ul id="alphanum-block-list" class="list">
+                        <li></li>
+                    </ul>
+                    <div id="alphanum-block-list-info"></div>
+                </div>
+            </div>
             <div id="pinyin-block-zone" style="height: 100%; display: none;">
                 <div class="header">
-                    <h2>即時禁詞(拼音)</h2>
+                    <h2>聊天即時禁詞(中文拼音)</h2>
                     <div>
                         <input type="text" id="pinyin-block-input"/>
                         <button class="pbz-btn" id="btn-local-search" title="模糊匹配搜尋已存禁詞">搜尋</button>
@@ -393,7 +425,7 @@
             </div>
             <div id="nickname-pinyin-block-zone" style="height: 100%; display: none;">
                 <div class="header">
-                    <h2>暱稱即時禁詞(拼音)</h2>
+                    <h2>暱稱即時禁詞(中文拼音)</h2>
                     <div>
                         <input type="text" id="nickname-pinyin-block-input"/>
                         <button class="pbz-btn" id="btn-nickname-block-local-search" title="模糊匹配搜尋已存暱稱禁詞">搜尋</button>
@@ -822,6 +854,7 @@
             var zones = [
                 'live-chat-zone',
                 'live-nickname-request-zone',
+                'alphanum-block-zone',
                 'pinyin-block-zone',
                 'alert-words-zone',
                 'nickname-pinyin-block-zone',
@@ -892,6 +925,244 @@
         }
         window.dialog = new Dialog();
     </script>
+
+    <script id="alphanum-block-script">
+        var alphanum_block_list = document.querySelector('#alphanum-block-list');
+        var alphanum_block_input = document.querySelector('#alphanum-block-input');
+        var alphanum_block_list_info = document.querySelector('#alphanum-block-list-info');
+        var btn_add_alphanum_block = document.querySelector('#btn-add-alphanum-block');
+        var btn_alphanum_block_local_search = document.querySelector('#btn-alphanum-block-local-search');
+        var btn_download_alphanum_block_list = document.querySelector('#btn-download-alphanum-block-list');
+        var btn_alphanum_block_refresh = document.querySelector('#btn-alphanum-block-refresh');
+        var global_alphanum_block_list = [];
+        var goon = false;
+        var max_block_num = 255;
+        // console.log('axios', axios);
+
+        reloadAlphaNumBlockList();
+        
+        btn_add_alphanum_block.onclick = function(e) {
+            var val = alphanum_block_input.value;
+            addAlphaNumBlock(val.trim());
+        }
+
+        btn_alphanum_block_local_search.onclick = function(e) {
+            var val = alphanum_block_input.value;
+            var exp = RegExp(`.*${val}.*`, 'ig');
+            if (val.length == 0) {
+                alphanumBlockShowList(global_alphanum_block_list);
+            } else {
+                alphanumBlockShowList(global_alphanum_block_list.filter(e => e[1].match(exp)));
+            }
+            // console.log('global_pinyin_block_list: ', global_pinyin_block_list);
+        }
+
+        alphanum_block_input.onchange = function(e) {
+            if (e.target.value.length == 0) {
+                alphanumBlockShowList(global_alphanum_block_list);
+            }
+        }
+
+        alphanum_block_list.onclick = function(e) {
+            var target = e.target;
+            if (target.classList.contains("delete-sapn")) {
+                if (!goon) {
+                    goon = window.confirm('確定執行刪除?');
+                }
+                if (goon) {
+                    var id = target.dataset.id;
+                    console.log([target]);
+
+                    axios.delete('/api/alphanumblock/' + id).then(e => {
+                        console.log('delete api: ', e.data);
+                        var _idx = global_alphanum_block_list.findIndex(e => e[0] == id);
+                        global_alphanum_block_list.splice(_idx, 1);
+                        alphanum_block_list_info.innerHTML = `Total Length: ${global_alphanum_block_list.length}`;
+                        alphanum_block_list.removeChild(target.parentNode);
+                    });
+                }
+            }
+        }
+
+        alphanum_block_list.ondragover = function(e) {
+            e.preventDefault();
+            this.classList.add('draging');
+        }
+        alphanum_block_list.ondragleave = function(e) {
+            e.preventDefault();
+            this.classList.remove('draging');
+        }
+
+        alphanum_block_list.ondrop = function(e) {
+            e.preventDefault();
+            this.classList.remove('draging');
+            var file = e.dataTransfer.files[0];
+            
+            
+            if (file.name.match(/.*\.csv$/i)) {
+                // var formData = new FormData();
+                // formData.append('file', file);
+                // console.log('formData: ', formData);
+                // axios.post('/api/upload/', formData, {
+                //     headers: {
+                //         'Content-Type': file.type,
+                //         'Content-Disposition': 'attachment; filename=' + file.name,
+                //     }
+                // });
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    console.log(event.target); 
+                    var res_text = event.target.result;
+                    var res_ary = res_text.split(/[\r\n]+/ig).map(r => r.split(',')[1]).filter(r => r && r.length > 0);
+                    console.log('reader res_ary: ', res_ary);
+                    var global_list = global_alphanum_block_list.map(e => e[1]);
+                    var filtered_ary = res_ary.filter(r => {
+                        return !global_list.includes(r);
+                    });
+                    console.log('filtered_ary: ', filtered_ary);
+                    addAlphaNumBlock(filtered_ary);
+                };
+                reader.readAsText(file);
+            } else {
+                window.alert('錯誤的檔案格式');
+            }
+        }
+
+        btn_download_alphanum_block_list.onclick = function(e) {
+            window.open('/api/alphanumblock/list', 'blank');
+        }
+
+        btn_alphanum_block_refresh.onclick = function (e) {
+            if (window.conn) {
+                window.conn.send(JSON.stringify({
+                    'msgid': '__tcpsocketrefreshalphanumblock__',
+                    'code': 1,
+                }));
+                window.alert('已更新禁詞');
+                // axios.post('/api/pinyinblock/refresh').then(e => {
+                    
+                // });
+            } else {
+                window.alert('請等待socket連線.');
+            }
+            
+        }
+
+
+        function alphanumBlockShowList(block_list) {
+            var new_html = '';
+            goon = false;
+            block_list.slice(0, 255).map(ary => {
+                var id = ary[0];
+                var txt = ary[1];
+                // var py = ary[2];
+                // new_html += strLi(id, txt, py);
+                new_html += strLi(id, txt);
+            });
+            // if (block_list.length >= 100) {
+            //     new_html += '最多只顯示100筆..';
+            // }
+            alphanum_block_list.innerHTML = new_html;
+            alphanum_block_list_info.innerHTML = `Now Length: ( ${block_list.length} ) / Total Length: ${global_alphanum_block_list.length}`;
+        }
+
+        function reloadAlphaNumBlockList() {
+            axios.get('/api/data/alphanumblocklist').then(e => {
+                global_alphanum_block_list = e.data;
+                console.log('global_alphanum_block_list: ', global_alphanum_block_list);
+                goon = false;
+                if (e.data.length == 0) {
+                    alphanum_block_list.innerHTML = '無資料';
+                } else {
+                    alphanumBlockShowList(global_alphanum_block_list);
+                }
+            });
+        }
+
+        function strLi(id, txt){
+            var _html = `<li><span class="delete-sapn" data-id="${id}">X</span><span class="txt-span">${txt}</span></li>`;
+            return _html;
+        }
+
+        function domLi(id, txt) {
+            var _dom = document.createElement('li');
+            _dom.innerHTML = `<span class="delete-sapn" data-id="${id}">X</span><span class="txt-span">${txt}</span>`;
+            return _dom;
+        }
+
+        function addAlphaNumBlock(text) {
+            if (!text) return false;
+            if (global_alphanum_block_list.length >= max_block_num) {
+                return window.alert(`最多只能禁 [ ${max_block_num} ] 個禁詞. `);
+            }
+            goon = false;
+
+            // var formData = new FormData();
+            var texts = [];
+
+            if (Array.isArray(text)) {
+                if (text.length > 0) {
+                    if (global_alphanum_block_list.length + text.length > max_block_num) {
+                        var _is = window.confirm(`最多只能禁 [ ${max_block_num} ] 個禁詞.  是否將超過數量的舊資料全移除?`);
+                        if (_is) {
+
+                        } else {
+                            return false;
+                        }
+                    }
+                    text.map(t => {
+                        // formData.append('text[]', t);
+                        texts.push(t);
+                    });
+                } else {
+                    return window.alert('沒有需要更新.');
+                }
+            } else {
+                var isConflict = false;
+                global_alphanum_block_list.map(e => {
+                    var _txt = e[1];
+                    if (text == _txt) {
+                        isConflict = true;
+                    }
+                });
+                if (isConflict) {
+                    return window.alert('重複新增: '+ text);
+                }
+                // if (text.match(/[\d]+/g)) {
+                //     return window.alert('不能有數字');
+                // }
+                // formData.append('text[]', text);
+                texts.push(text);
+            }
+            alphanum_block_list.classList.add('loading');
+            return axios.post('/api/alphanumblock/add', {text: texts}).then(e => {
+                var data = e.data;
+                var result = data.result;
+                if (result && result.length > 0) {
+                    if (result.length == 1) {
+                        result.map(r => {
+                            var id = r.id;
+                            var text = r.text;
+                            // var pinyin = r.pinyin;
+                            console.log('alphanum block data: ', data);
+                            alphanum_block_list.prepend(domLi(id, text));
+                            alphanum_block_input.value = '';
+                            global_alphanum_block_list.unshift([id, text]);
+                            alphanum_block_list_info.innerHTML = `Total Length: ${global_alphanum_block_list.length}`;
+                        });
+                    } else {
+                        reloadAlphaNumBlockList();
+                    }
+                    window.alert('新增成功.');
+                } else {
+                    window.alert('新增失敗.');
+                    console.log('text: ', text, 'data: ', data);
+                    reloadAlphaNumBlockList();
+                }
+                alphanum_block_list.classList.remove('loading');
+            });
+        }
+    </script>
     
     <script id="pinyin-block-script">
         var pinyin_block_list = document.querySelector('#pinyin-block-list');
@@ -951,7 +1222,7 @@
             }
         }
 
-        pinyin_block_list.ondragenter = pinyin_block_list.ondragover = function(e) {
+        pinyin_block_list.ondragover = function(e) {
             e.preventDefault();
             this.classList.add('draging');
         }
@@ -1086,7 +1357,7 @@
             } else {
                 var isConflict = false;
                 global_pinyin_block_list.map(e => {
-                    var _txt = e[0];
+                    var _txt = e[1];
                     if (text == _txt) {
                         isConflict = true;
                     }
@@ -1188,7 +1459,7 @@
         }
     }
 
-    nickname_pinyin_block_list.ondragenter = nickname_pinyin_block_list.ondragover = function(e) {
+    nickname_pinyin_block_list.ondragover = function(e) {
         e.preventDefault();
         this.classList.add('draging');
     }
@@ -1323,7 +1594,7 @@
         } else {
             var isConflict = false;
             global_nickname_pinyin_block_list.map(e => {
-                var _txt = e[0];
+                var _txt = e[1];
                 if (text == _txt) {
                     isConflict = true;
                 }
@@ -1559,7 +1830,7 @@
             } else {
                 var isConflict = false;
                 global_alert_words_list.map(e => {
-                    var _txt = e[0];
+                    var _txt = e[1];
                     if (text == _txt) {
                         isConflict = true;
                     }

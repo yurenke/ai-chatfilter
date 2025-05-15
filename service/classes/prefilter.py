@@ -1,6 +1,13 @@
 import re
 import time
+import pandas as pd
+from flashtext import KeywordProcessor
+import os
+
 from ai.classes.translator_pinyin import translate_by_string
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SENSITIVE_WORDS_PATH = os.path.join(BASE_DIR, 'ai/assets')
 
 
 regex_chinese = re.compile('[\u4e00-\u9fa5]+')
@@ -45,7 +52,7 @@ number_pinyin_set = set([
 
 allowed_number_units_chinese_chars = set(['十', '拾', '百', '千', '万', '亿'])
 must_block_pinyin = [['gong', 'zhong'], ['gong', 'zong'], ['pin', 'yin'], ['pan', 'yin'], ['ping', 'yin'], ['pin', 'ying'], ['pan', 'ying'], ['ping', 'ying'], ['wei', 'xin']]
-one_word_block_pinyin = ['gong', 'zong', 'zhong', 'hao', 'pin', 'ping', 'pan', 'wei', 'xin', 'yin', 'ying']
+one_word_block_pinyin = ['gong', 'zong', 'zhong', 'hao', 'pin', 'ping', 'pan', 'wei', 'xin', 'yin']
 
 ch_emojis = [':)', '=)', ':(', ':v', '-_-', ':3', '<3', '@@', ':D', ':>', ':">', '=]', ':<', '^_^', '^^', ':-)', '><', '>.<', '~~', ':p', ':-p']
 
@@ -57,15 +64,25 @@ class PreFilter():
     """
     SECOND_QUICK_SAYING = 3
     map_loginname_timestamp = {}
+    dynamic_alphanum_block_list = []
     dynamic_pinyin_block_list = []
     dynamic_alert_words_list = []
     dynamic_nickname_pinyin_block_list = []
+    sensitive_words_trie = None
 
 
     def __init__(self):
-        pass
+        # pass
+        df = pd.read_excel(os.path.join(SENSITIVE_WORDS_PATH, 'sensitive_words.xlsx'))
+        sensitive_words = df["敏感词"].dropna().astype(str).tolist()
+        self.sensitive_words_trie = KeywordProcessor(case_sensitive=False)
 
+        # 加入所有敏感詞
+        for word in sensitive_words:
+            self.sensitive_words_trie.add_keyword(word)
 
+    def find_sensitive_words(self, text):
+        return self.sensitive_words_trie.extract_keywords(text)
 
     def find_not_allowed_chat(self, text):
         next_char = ''
@@ -218,7 +235,7 @@ class PreFilter():
     def find_suspect_digits_symbol(self, text):
         regex = r'[\（\）\！\!\(\)\d\&\+\＋]'
         searched = re.findall(regex, text)
-        if searched and len(searched) > 3:
+        if searched and len(searched) > 6:
             return ''.join(searched)
         regex_2 = r'[\+\＋\&\＆]'
         searched = re.findall(regex_2, text)
@@ -244,6 +261,9 @@ class PreFilter():
         #  _code > 0xfe00 and _code < 0xffff:
         # return (uchar >= u'\uff00' and uchar <= u'\uff65') or (uchar >= u'\ufe30' and uchar <= u'\ufe6a')
         return uchar >= u'\ufe30' and uchar <= u'\uff65'
+    
+    def is_full_alphanum(self, uchar):
+        return (uchar >= u'\uff10' and uchar <= u'\uff19') or (uchar >= u'\uff21' and uchar <= u'\uff3a') or (uchar >= u'\uff41' and uchar <= u'\uff5a')
 
     def is_number(self, uchar, chinese=False):
         # return (uchar >= u'\u0030' and uchar <= u'\u0039') or (uchar >= u'\uff10' and uchar <= u'\uff19')
@@ -280,6 +300,9 @@ class PreFilter():
     def is_allowed_character(self, uchar):
         if uchar in viet_chars:
             return True
+        
+        if self.is_full_alphanum(uchar):
+            return False
 
         for _ in allowed_character_regexies:
             _st = _[0]
@@ -335,6 +358,23 @@ class PreFilter():
             if _aw in _text:
                 return _aw
         return False
+    
+    def blocked_alphanum_found(self, text, blocked_word):
+        lower_text = text.lower()
+        lower_blocked_word = blocked_word.lower().replace(" ", "")
+        i = 0
+        for w in lower_text:
+            if w == lower_blocked_word[i]:
+                i += 1
+            if i == len(lower_blocked_word):
+                return True
+        return False
+    
+    def find_alphanum_blocked(self, text):
+        for b_word in self.dynamic_alphanum_block_list:
+            if self.blocked_alphanum_found(text, b_word):
+                return b_word
+        return ''
     
     def blocked_pinyin_found(self, words, blocked_words):
         i = 0
@@ -402,6 +442,22 @@ class PreFilter():
 
         return text
 
+    def set_alphanum_block_list(self, _list_):
+        print('[set_alphanum_block_list] Length: ', len(_list_))
+        _word_idx = 1
+        if len(_list_) > 0:
+            if isinstance(_list_[0], str):
+                self.dynamic_alphanum_block_list = _list_
+            else:
+                try:
+                    self.dynamic_alphanum_block_list = [_[_word_idx] for _ in _list_]
+                except Exception as err:
+                    print('[set_alphanum_block_list] Error: ', err)
+                    return False
+        else:
+            self.dynamic_alphanum_block_list = []
+
+        return True
 
     def set_pinyin_block_list(self, _list_):
         print('[set_pinyin_block_list] Length: ', len(_list_))

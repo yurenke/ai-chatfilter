@@ -35,6 +35,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     key_change_nickname_request = '__changenicknamerequest__'
     key_training_start = '__trainingstart__'
     key_tcpsocket_connection_login = '__tcpsocketconnectionlogin__'
+    key_tcp_refresh_alphanum_block = '__tcpsocketrefreshalphanumblock__'
     key_tcp_refresh_pinyin_block = '__tcpsocketrefreshpinyinblock__'
     key_tcp_refresh_nickname_pinyin_block = '__tcpsocketrefreshnicknamepinyinblock__'
     key_tcp_refresh_alert_words = '__tcpsocketrefreshalertwords__'
@@ -310,6 +311,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 self.hostname = _hostname
 
                 self.is_tcp = True
+
+        elif order_key == self.key_tcp_refresh_alphanum_block:
+            await self.channel_layer.group_send(
+                self.group_name_tcpsocket_client,
+                {
+                    'type': 'channel_chat_to_tcpsocket',
+                    'msgid': self.key_tcp_refresh_alphanum_block,
+                    'message': 1,
+                },
+            )
+            await sync_to_async(self.main_service.reload_alphanum_block)()
+            return None
 
         elif order_key == self.key_tcp_refresh_pinyin_block:
             await self.channel_layer.group_send(

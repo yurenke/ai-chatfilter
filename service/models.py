@@ -94,6 +94,9 @@ class ChangeNicknameRequest(models.Model):
             models.Index(fields=['status',]),
         ]
 
+class DynamicAlphaNumBlock(models.Model):
+    text = models.CharField(max_length=16)
+    date = models.DateTimeField(auto_now_add=True, blank=True)
 
 class DynamicPinyinBlock(models.Model):
     text = models.CharField(max_length=16)

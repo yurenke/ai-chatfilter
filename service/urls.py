@@ -18,7 +18,7 @@ from django.urls import path, include
 from django.http import Http404, HttpResponse, JsonResponse
 from django.views.static import serve
 from service import instance
-from .views import ServiceJSONDataAPIView, ServiceUploadAPIView, ServiceRemoveAPIView, ServicePinyinBlockListAPIView
+from .views import ServiceJSONDataAPIView, ServiceUploadAPIView, ServiceRemoveAPIView, ServicePinyinBlockListAPIView, ServiceAlphaNumBlockListAPIView
 from .views import ServiceNicknamePinyinBlockListAPIView, ServiceAlertWordsListAPIView, TwiceServiceAPIView, NicknameTwiceServiceAPIView, ServiceCommandAPIView, TrainServiceAPIView, train_val_complete_handler
 from .views import train_complete_notification_handler
 import os
@@ -47,6 +47,8 @@ def read_data_path(request, name):
     result_data = None
     if name == 'vocabulary':
         result_data = main_service.get_vocabulary_data()
+    elif name == 'alphanumblocklist':
+        result_data = main_service.get_dynamic_alphanum_block_list()
     elif name == 'dpinyinblist':
         result_data = main_service.get_dynamic_pinyin_block_list()
     elif name == 'dalertwordslist':
@@ -112,6 +114,7 @@ urlpatterns = [
     path('api/jsondata/<slug:name>', ServiceJSONDataAPIView.as_view()),
     path('api/upload/<slug:name>', ServiceUploadAPIView.as_view()),
     path('api/remove/<slug:name>/<slug:id>', ServiceRemoveAPIView.as_view()),
+    path('api/alphanumblock/<slug:id>', ServiceAlphaNumBlockListAPIView.as_view()),
     path('api/pinyinblock/<slug:id>', ServicePinyinBlockListAPIView.as_view()),
     path('api/nicknamepinyinblock/<slug:id>', ServiceNicknamePinyinBlockListAPIView.as_view()),
     path('api/alertwords/<slug:id>', ServiceAlertWordsListAPIView.as_view()),

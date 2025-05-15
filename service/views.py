@@ -202,6 +202,62 @@ class ServiceRemoveAPIView(APIView):
             return JsonResponse({'name': 'none'}, safe=False)
 
 
+class ServiceAlphaNumBlockListAPIView(APIView):
+    """
+    """
+
+    def get(self, request, id):
+        if id == 'list':
+            today = date.today()
+            _date = today.strftime("%Y%m%d")
+            filename = '{}_alphanum_block_list.csv'.format(_date)
+            reslist = get_main_service(is_admin=True).get_dynamic_alphanum_block_list()
+            
+            response = HttpResponse(content_type='text/csv; charset=utf-8')
+            response['Content-Disposition'] = "attachment; filename=" + filename
+            response.write(codecs.BOM_UTF8)
+            writer = csv.writer(response)
+            # writer.writeheader()
+            for r in reslist:
+                writer.writerow(r)
+            return response
+        
+        return HttpResponseForbidden('Add Failed.')
+
+    def post(self, request, id):
+        result = []
+        if id == 'add':
+            texts = request.data.get('text', [])
+            print('===============ServiceAlphaNumBlockListAPIView texts : ', texts)
+            if texts:
+                result = get_main_service(is_admin=True).add_alphanum_block(texts)
+
+            return JsonResponse({'result': result}, safe=False)
+        
+        elif id == 'file':
+            pass
+        
+        return HttpResponseForbidden('Add Failed.')
+        
+
+    def delete(self, request, id):
+        try:
+            id = int(id)
+            if id > 0:
+
+                _done = get_main_service(is_admin=True).remove_alphanum_block(id)
+
+                if not _done:
+                    return HttpResponseForbidden('Delete Failed.')
+
+            return JsonResponse({
+                'id': id,
+                'datetime': datetime.today(),
+            })
+            
+        except Exception as err:
+            return HttpResponseForbidden(str(err))
+
 class ServicePinyinBlockListAPIView(APIView):
     """
     """

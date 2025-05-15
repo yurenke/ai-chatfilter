@@ -23,7 +23,7 @@ import langid
 from .classes.prefilter import PreFilter
 # from .classes.fuzzycenter import FuzzyCenter
 from .classes.chatstore import ChatStore
-from .models import GoodSentence, BlockedSentence, AnalyzingData, UnknownWord, ChangeNicknameRequest, Blockword, DynamicPinyinBlock, DynamicAlertWords
+from .models import GoodSentence, BlockedSentence, AnalyzingData, UnknownWord, DynamicAlphaNumBlock, DynamicPinyinBlock, DynamicAlertWords
 from .preprocesstext import preprocess_chat_text_for_vi, preprocess_chat_text_for_thai_and_others, preprocess_chat_text_for_ch
 from .preprocesstext import cc
 
@@ -81,6 +81,7 @@ class MainService():
     # REMOTE_ROUTE_TRANSFORMER_MODEL = '/api/model/transformer'
     # REMOTE_ROUTE_ENGLISH_MODEL = '/api/model/english'
     REMOTE_ROUTE_VOCABULARY_DATA = '/api/data/vocabulary'
+    REMOTE_ROUTE_DYNAMIC_ALPHANUM_BLOCK = '/api/data/alphanumblocklist'
     REMOTE_ROUTE_DYNAMIC_PINYIN_BLOCK = '/api/data/dpinyinblist'
     REMOTE_ROUTE_DYNAMIC_ALERT_WORDS = '/api/data/dalertwordslist'
 
@@ -101,6 +102,7 @@ class MainService():
             self.is_admin_server = True
             self.check_analyzing()
             if self.lang_mode == self.STATUS_MODE_CHINESE:
+                self.pre_filter.set_alphanum_block_list(self.get_dynamic_alphanum_block_list())
                 self.pre_filter.set_pinyin_block_list(self.get_dynamic_pinyin_block_list())
                 self.pre_filter.set_alert_words_list(self.get_dynamic_alert_words_list())
 
@@ -189,6 +191,8 @@ class MainService():
             
             # remove <d>[a-zA-Z]</d> pattern
             if text:
+                if re.search(r"<event>.*?</event>", text):
+                    return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, st_time=st_time)
                 # remove UI emoji first
                 text = re.sub(r'<d>[a-zA-Z]</d>', '', text)
 
@@ -214,6 +218,12 @@ class MainService():
                         else:
                             lang = LANG_OTHERS
 
+                        tmp = re.sub(r' +', ' ', text)
+                        sensitive_words = self.pre_filter.find_sensitive_words(tmp)
+                        if len(sensitive_words) > 0:
+                            prediction = self.STATUS_PREDICTION_NOT_ALLOW
+                            return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=sensitive_words[0], is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
+
 
             # print('parse_message text: ', text)
             if self.lang_mode == self.STATUS_MODE_CHINESE:
@@ -227,20 +237,25 @@ class MainService():
                         prediction = self.STATUS_PREDICTION_NOT_ALLOW
                         return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
 
+                    reason_char = self.pre_filter.find_alphanum_blocked(text)
+                    if reason_char:
+                        prediction = self.STATUS_PREDICTION_NOT_ALLOW
+                        return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
+                    
                     reason_char = self.find_prefilter_reject_reason_with_nonparsed_msg(text)
                     if reason_char:
                         prediction = self.STATUS_PREDICTION_NOT_ALLOW
                         return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
                     
-                    if lang == LANG_CH:
-                        reason_char = self.pre_filter.find_unallow_eng(text)
-                        if reason_char:
-                            prediction = self.STATUS_PREDICTION_NOT_ALLOW
-                            return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
-                        reason_char = self.pre_filter.find_pinyin_blocked(text)
-                        if reason_char:
-                            prediction = self.STATUS_PREDICTION_NOT_ALLOW
-                            return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
+                    # if lang == LANG_CH:
+                    reason_char = self.pre_filter.find_unallow_eng(text)
+                    if reason_char:
+                        prediction = self.STATUS_PREDICTION_NOT_ALLOW
+                        return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
+                    reason_char = self.pre_filter.find_pinyin_blocked(text)
+                    if reason_char:
+                        prediction = self.STATUS_PREDICTION_NOT_ALLOW
+                        return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
         
         if user[:3] == 'TST':
             if anchor > 0 or room == 'BG01':
@@ -277,7 +292,7 @@ class MainService():
 
                 if len(text) == 0 :
                     return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
-                
+
                 
             #main ai
             prediction, reason_char = self.ai_app.predict(text, lv=lv, with_reason=self.is_admin_server)
@@ -477,6 +492,8 @@ class MainService():
             _data_pk = ListPickle(get_vocabulary_dictionary_path() + '/data.pickle')
             return _data_pk.get_list()[0] or {}
 
+    def get_dynamic_alphanum_block_list(self):
+        return list(DynamicAlphaNumBlock.objects.values_list('id', 'text').order_by('-id').all())
 
     def get_dynamic_pinyin_block_list(self):
         return list(DynamicPinyinBlock.objects.values_list('id', 'text', 'pinyin').order_by('-id').all())
@@ -507,6 +524,18 @@ class MainService():
         
         return _json_data
 
+    def get_dynamic_alphanum_block_list_remotely(self, http_connection):
+        http_connection.request('GET', self.REMOTE_ROUTE_DYNAMIC_ALPHANUM_BLOCK, headers={'Content-type': 'application/json'})
+        _http_res = http_connection.getresponse()
+        json_data = None
+        if _http_res.status == 200:
+
+            json_data = json.loads(_http_res.read().decode(encoding='utf-8'))
+            logging.info('[get_dynamic_alphanum_block_list_remotely] Download Data Done.')
+        else:
+            logging.error('[get_dynamic_alphanum_block_list_remotely] Download Failed.')
+        
+        return json_data
     
     def get_dynamic_pinyin_block_list_remotely(self, http_connection):
         http_connection.request('GET', self.REMOTE_ROUTE_DYNAMIC_PINYIN_BLOCK, headers={'Content-type': 'application/json'})
@@ -614,6 +643,7 @@ class MainService():
         if self.lang_mode == self.STATUS_MODE_CHINESE:
 
             self.vocabulary_data = self.get_vocabulary_data_remotely(_http_cnn)
+            self.reload_alphanum_block(_http_cnn)
             self.reload_pinyin_block(_http_cnn)
             self.reload_alert_words(_http_cnn)
             _http_cnn.request('GET', self.REMOTE_ROUTE_CHAT_MODEL)
@@ -680,6 +710,35 @@ class MainService():
             logging.error(str(err))
             raise Exception(err)
 
+    def add_alphanum_block(self, text):
+        _num_max = 255
+        try:
+            if isinstance(text, list):
+                _dps = []
+                for _ in text:
+                    _ = cc.convert(_)
+                    _dps.append(DynamicAlphaNumBlock(text=_))
+                DynamicAlphaNumBlock.objects.bulk_create(_dps, batch_size=100)
+                _ids = list(DynamicAlphaNumBlock.objects.values_list('pk', flat=True)[_num_max:])
+                if len(_ids) > 0:
+                    DynamicAlphaNumBlock.objects.filter(id__in=_ids).delete()
+                return [model_to_dict(_) for _ in _dps]
+            else:
+                text = cc.convert(text)
+                qs = DynamicAlphaNumBlock.objects.filter(text=text)
+                if len(qs) == 0:
+                    qs = DynamicAlphaNumBlock.objects.create(
+                        text=text
+                    )
+                    _count = DynamicAlphaNumBlock.objects.count()
+                    if _count > _num_max:
+                        DynamicAlphaNumBlock.objects.all().first().delete()
+                    return model_to_dict(qs)
+                else:
+                    return None
+        except Exception as err:
+            print('add_alphanum_block error: ', err)
+            return None
 
     def add_pinyin_block(self, text):
         _num_max = 255
@@ -687,6 +746,7 @@ class MainService():
             if isinstance(text, list):
                 _dps = []
                 for _ in text:
+                    _ = cc.convert(_)
                     _py = translate_by_string(_)
                     _dps.append(DynamicPinyinBlock(text=_, pinyin=_py))
                 DynamicPinyinBlock.objects.bulk_create(_dps, batch_size=100)
@@ -695,6 +755,7 @@ class MainService():
                     DynamicPinyinBlock.objects.filter(id__in=_ids).delete()
                 return [model_to_dict(_) for _ in _dps]
             else:
+                text = cc.convert(text)
                 _py = translate_by_string(text)
                 qs = DynamicPinyinBlock.objects.filter(pinyin=_py)
                 if len(qs) == 0:
@@ -718,6 +779,7 @@ class MainService():
             if isinstance(text, list):
                 _dps = []
                 for _ in text:
+                    _ = cc.convert(_)
                     _dps.append(DynamicAlertWords(text=_))
                 DynamicAlertWords.objects.bulk_create(_dps, batch_size=100)
                 _ids = list(DynamicAlertWords.objects.values_list('pk', flat=True)[_num_max:])
@@ -725,6 +787,7 @@ class MainService():
                     DynamicAlertWords.objects.filter(id__in=_ids).delete()
                 return [model_to_dict(_) for _ in _dps]
             else:
+                text = cc.convert(text)
                 qs = DynamicAlertWords.objects.filter(text=text)
                 if len(qs) == 0:
                     qs = DynamicAlertWords.objects.create(
@@ -751,6 +814,12 @@ class MainService():
         except Exception as err:
             return False
 
+    def remove_alphanum_block(self, id):
+        try:
+            DynamicAlphaNumBlock.objects.get(pk=id).delete()
+            return True
+        except Exception as err:
+            return False
 
     def remove_pinyin_block(self, id):
         try:
@@ -766,6 +835,17 @@ class MainService():
         except Exception as err:
             return False
 
+    def reload_alphanum_block(self, conn = None):
+        print('[Reload_alphanum_block] Triggered.')
+        if conn:
+            _dpb_list = self.get_dynamic_alphanum_block_list_remotely(conn)
+        elif self.main_admin_server_addr:
+            _ip, _port = self.main_admin_server_addr
+            _dpb_list = self.get_dynamic_alphanum_block_list_remotely(HTTPConnection(_ip, _port))
+        else:
+            _dpb_list = self.get_dynamic_alphanum_block_list()
+        
+        self.pre_filter.set_alphanum_block_list(_dpb_list)
 
     def reload_pinyin_block(self, conn = None):
         print('[Reload_pinyin_block] Triggered.')

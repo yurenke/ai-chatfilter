@@ -12,6 +12,7 @@ from service import instance
 
 class LaunchTcpSocket():
 
+    STATIC_MSGID_REFRESH_ALPHANUM_BLOCK = '__tcpsocketrefreshalphanumblock__'
     STATIC_MSGID_REFRESH_PINYIN_BLOCK = '__tcpsocketrefreshpinyinblock__'
     STATIC_MSGID_REFRESH_ALERT_WORDS = '__tcpsocketrefreshalertwords__'
     STATIC_MSGID_REFRESH_NICKNAME_PINYIN_BLOCK = '__tcpsocketrefreshnicknamepinyinblock__'
@@ -105,6 +106,8 @@ class LaunchTcpSocket():
             self.service_instance.reload_pinyin_block()
         elif msgid == self.STATIC_MSGID_REFRESH_ALERT_WORDS:
             self.service_instance.reload_alert_words()
+        elif msgid == self.STATIC_MSGID_REFRESH_ALPHANUM_BLOCK:
+            self.service_instance.reload_alphanum_block()
         elif msgid == self.STATIC_MSGID_REFRESH_NICKNAME_PINYIN_BLOCK:
             self.nickname_filter_instance.reload_nickname_pinyin_block()
         # self.service_instance
