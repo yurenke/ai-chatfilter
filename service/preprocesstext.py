@@ -1,4 +1,5 @@
 import os
+from enum import Enum
 import pandas as pd
 import numpy as np
 import re
@@ -8,6 +9,9 @@ from scipy.sparse import hstack
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from opencc import OpenCC
+import fasttext
+from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
+
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -24,6 +28,23 @@ da_path = os.path.join(BASE_DIR, 'ai/assets/vi_abb/abbreviation_dictionary_vn.xl
 duplicate_abb = pd.read_excel(da_path, sheet_name='duplicate', header=None)
 duplicate_abb = list(duplicate_abb[0])
 cc = OpenCC('t2s')
+fasttext_model = fasttext.load_model(os.path.join(BASE_DIR, 'ai/_models/fasttext_pretrained_model/lid.176.ftz'))
+factory = StemmerFactory()
+stemmer = factory.create_stemmer()
+alay_dict = pd.read_csv(os.path.join(BASE_DIR, 'ai/assets/indonesian/new_kamusalay.csv'), encoding='latin-1', header=None)
+alay_dict = alay_dict.rename(columns={0: 'original', 
+                                      1: 'replacement'})
+alay_dict_map = dict(zip(alay_dict['original'], alay_dict['replacement']))
+
+id_stopword_dict = pd.read_csv(os.path.join(BASE_DIR, 'ai/assets/indonesian/stopwordbahasa.csv'), header=None)
+id_stopword_dict = id_stopword_dict.rename(columns={0: 'stopword'})
+
+class Language(Enum):
+    ZH = "zh"
+    ID = "id"
+    TH = "th"
+    VI = "vi"
+    OTHER = "other"
 
 # def remove_characters_emoji(text):
 #     ch_emojis = [':)', '=)', ':(', ':v', '-_-', ':3', '<3', '@@', ':D', ':>', ':">', '=]', ':<', '^_^', '^^', ':-)', '><', '>.<', '~~', ':p', ':-p']
@@ -31,6 +52,27 @@ cc = OpenCC('t2s')
 #         text = text.replace(e, " ")
 #     text = re.sub('  +', ' ', text).strip()
 #     return text
+
+def detect_language(text: str, threshold: float = 0.85) -> Language:
+    try:
+        labels, probs = fasttext_model.predict(text)
+        if not labels or probs[0] < threshold:
+            return Language.OTHER
+
+        lang_code = labels[0].replace("__label__", "").lower()
+
+        if lang_code.startswith("zh"):
+            return Language.ZH
+        elif lang_code == "id":
+            return Language.ID
+        elif lang_code == "th":
+            return Language.TH
+        elif lang_code == "vi":
+            return Language.VI
+        else:
+            return Language.OTHER
+    except Exception:
+        return Language.OTHER
 
 def replace_url(text):
     URL_PATTERN = r"""(?i)\b((?:https?:(?:/{1,3}|[a-z0-9%])|[a-z0-9.\-]+[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)/)(?:[^\s()<>{}\[\]]+|\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\))+(?:\([^\s()]*?\([^\s()]+\)[^\s()]*?\)|\([^\s]+?\)|[^\s`!()\[\]{};:'".,<>?«»“”‘’])|(?:(?<!@)[a-z0-9]+(?:[.\-][a-z0-9]+)*[.](?:com|net|org|edu|gov|mil|aero|asia|biz|cat|coop|info|int|jobs|mobi|museum|name|post|pro|tel|travel|xxx|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|at|au|aw|ax|az|ba|bb|bd|be|bf|bg|bh|bi|bj|bm|bn|bo|br|bs|bt|bv|bw|by|bz|ca|cc|cd|cf|cg|ch|ci|ck|cl|cm|cn|co|cr|cs|cu|cv|cx|cy|cz|dd|de|dj|dk|dm|do|dz|ec|ee|eg|eh|er|es|et|eu|fi|fj|fk|fm|fo|fr|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gr|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|hu|id|ie|il|im|in|io|iq|ir|is|it|je|jm|jo|jp|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|lt|lu|lv|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mt|mu|mv|mw|mx|my|mz|na|nc|ne|nf|ng|ni|nl|no|np|nr|nu|nz|om|pa|pe|pf|pg|ph|pk|pl|pm|pn|pr|ps|pt|pw|py|qa|re|ro|rs|ru|rw|sa|sb|sc|sd|se|sg|sh|si|sj|Ja|sk|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tp|tr|tt|tv|tw|tz|ua|ug|uk|us|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|za|zm|zw)\b/?(?!@)))"""
@@ -56,6 +98,18 @@ def remove_special_character_1(text):  # remove dot and comma
     text = re.sub("[.,?!]", " ", text)
     text = re.sub('  +', ' ', text).strip()
     return text
+
+def normalize_alay_for_id(text):
+    return ' '.join([alay_dict_map[word] if word in alay_dict_map else word for word in text.split(' ')])
+
+def remove_stopword_for_id(text):
+    text = ' '.join(['' if word in id_stopword_dict.stopword.values else word for word in text.split(' ')])
+    text = re.sub('  +', ' ', text) # Remove extra spaces
+    text = text.strip()
+    return text
+
+def stemming_for_id(text):
+    return stemmer.stem(text)
 
 def abbreviation_kk(text):
     text = str(text)
@@ -167,4 +221,13 @@ def preprocess_chat_text_for_vi(text):
     text = remove_special_character(text)
     text = abbreviation_normal(text)
     text = abbreviation_predict(text)
+    return text
+
+def preprocess_chat_text_for_id(text):
+    text = text.lower()
+    text = replace_url(text)
+    text = remove_special_character(text)
+    text = normalize_alay_for_id(text)
+    text = stemming_for_id(text)
+    text = remove_stopword_for_id(text)
     return text

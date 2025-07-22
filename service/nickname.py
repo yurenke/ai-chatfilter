@@ -133,6 +133,13 @@ class NicknameFilter():
         text = nickname.encode('utf-8', errors="ignore").decode('utf-8')
         # text = text.lower()
         text = cc.convert(text)
+
+        tmp = re.sub(r' +', ' ', text)
+        sensitive_words = self.pre_filter.find_sensitive_words(tmp)
+        if len(sensitive_words) > 0:
+            pred = self.CODE_BLOCKED_WORDS
+            reason = 'sensitive words found'
+            return self.return_result(prediction=pred, text=text, reason=reason, detail=detail, st_time=st_time)
         # lang = LANG_CH if langid.classify(text)[0] == 'zh' else LANG_OTHERS
         
         for uchar in text:

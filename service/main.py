@@ -18,20 +18,15 @@ from tensorflow.keras.callbacks import Callback
 import numpy as np
 import time, re, logging, json, threading
 from os import path, listdir
-import langid
+# import langid
 
 from .classes.prefilter import PreFilter
 # from .classes.fuzzycenter import FuzzyCenter
 from .classes.chatstore import ChatStore
 from .models import GoodSentence, BlockedSentence, AnalyzingData, UnknownWord, DynamicAlphaNumBlock, DynamicPinyinBlock, DynamicAlertWords
-from .preprocesstext import preprocess_chat_text_for_vi, preprocess_chat_text_for_thai_and_others, preprocess_chat_text_for_ch
+from .preprocesstext import preprocess_chat_text_for_vi, preprocess_chat_text_for_id, preprocess_chat_text_for_thai_and_others, preprocess_chat_text_for_ch
 from .preprocesstext import cc
-
-
-LANG_CH = 0
-LANG_THAI = 1
-LANG_VI = 2
-LANG_OTHERS = 3
+from .preprocesstext import detect_language, Language
 
 class MainService():
     """
@@ -178,7 +173,7 @@ class MainService():
         reason_char = ''
         prediction = 0
         is_suspicious = 0
-        lang = LANG_OTHERS
+        lang = Language.OTHER
 
         # print('receive message :', message)
 
@@ -208,15 +203,7 @@ class MainService():
                         text = text.strip().replace('\n', ' ').replace('\r', ' ')
                         text = cc.convert(text)
                         # detect the language
-                        tmp = langid.classify(text)[0]
-                        if tmp == 'zh':
-                            lang = LANG_CH
-                        elif tmp == 'th':
-                            lang = LANG_THAI
-                        elif tmp == 'vi':
-                            lang = LANG_VI
-                        else:
-                            lang = LANG_OTHERS
+                        lang = detect_language(text)
 
                         tmp = re.sub(r' +', ' ', text)
                         sensitive_words = self.pre_filter.find_sensitive_words(tmp)
@@ -232,7 +219,7 @@ class MainService():
                     if suspiciousWords:
                         is_suspicious = 1
 
-                    if lang == LANG_CH and len(text) > 25:
+                    if lang == Language.ZH and len(text) > 25:
                         reason_char = 'too many words'
                         prediction = self.STATUS_PREDICTION_NOT_ALLOW
                         return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
@@ -278,15 +265,17 @@ class MainService():
             if self.lang_mode == self.STATUS_MODE_CHINESE:
                 text = self.transform_text(text)
                 
-                if lang == LANG_CH:
+                if lang == Language.ZH:
                     # block sentences with >= 5 spaces
                     if text.count(' ') >= 5:
                         prediction = self.STATUS_PREDICTION_NOT_ALLOW
                         reason_char = 'too many spaces'
                         return self.return_reslut(prediction, message=message, user=user, room=room, text=text, reason=reason_char, is_suspicious=is_suspicious, silence=silence, detail=detail, st_time=st_time)
                     text = preprocess_chat_text_for_ch(text)
-                elif lang == LANG_VI:
+                elif lang == Language.VI:
                     text = preprocess_chat_text_for_vi(text)
+                elif lang == Language.ID:
+                    text = preprocess_chat_text_for_id(text)
                 else:
                     text = preprocess_chat_text_for_thai_and_others(text)
 

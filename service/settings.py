@@ -135,8 +135,11 @@ DATABASES = {
         'USER': config.get('DATABASE', 'DATABASE_USER'),
         'PASSWORD': config.get('DATABASE', 'DATABASE_PASSWORD'),
         'HOST': config.get('DATABASE', 'DATABASE_HOST'),
-        'PORT': config.get('DATABASE', 'DATABASE_PORT')
-    },
+        'PORT': config.get('DATABASE', 'DATABASE_PORT'),
+        'OPTIONS': {
+                    'options': '-c timezone=UTC'
+                }
+            }
     # 'postgresql': {
     #     'ENGINE': 'django.db.backends.postgresql_psycopg2',
     # },

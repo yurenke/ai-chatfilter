@@ -42,6 +42,7 @@ CH_TRAIN_DATA_PATH = os.path.join(BASE_DIR, 'ai/assets/chinese')
 ENG_TRAIN_DATA_PATH = os.path.join(BASE_DIR, 'ai/assets/english')
 THAI_TRAIN_DATA_PATH = os.path.join(BASE_DIR, 'ai/assets/thai')
 VIET_TRAIN_DATA_PATH = os.path.join(BASE_DIR, 'ai/assets/vietnamese')
+IND_TRAIN_DATA_PATH = os.path.join(BASE_DIR, 'ai/assets/indonesian')
 
 config = RawConfigParser()
 config.read(BASE_DIR+'/setting.ini')
@@ -631,10 +632,33 @@ class ChineseChatModel(BaseModel):
 
         del vi_train_df, vi_val_df
 
-        x_train = np.concatenate((x_train, x_eng_train, x_thai_train, x_vi_train), axis=0)
-        x_val = np.concatenate((x_val, x_eng_val, x_thai_val, x_vi_val), axis=0)
-        y_train = np.concatenate((y_train, y_eng_train, y_thai_train, y_vi_train), axis=0)
-        y_val = np.concatenate((y_val, y_eng_val, y_thai_val, y_vi_val), axis=0)
+        # indonesian data
+        logging.info('reading indonesian training data...')
+        ind_train_df = pd.read_csv(os.path.join(IND_TRAIN_DATA_PATH, 'ind_train.csv'))
+        ind_val_df = pd.read_csv(os.path.join(IND_TRAIN_DATA_PATH, 'ind_val.csv'))
+        ind_train_df = ind_train_df.dropna()
+        ind_val_df = ind_val_df.dropna()
+        ind_train_df = ind_train_df[ind_train_df['text'].astype(bool)] # remove rows containing empty string
+        ind_train_df = ind_train_df.drop_duplicates(subset=['text'])
+        logging.info('total length of ind training data: {}'.format(len(ind_train_df.index)))
+        ind_val_df = ind_val_df[ind_val_df['text'].astype(bool)] # remove rows containing empty string
+        ind_val_df = ind_val_df.drop_duplicates(subset=['text'])
+        logging.info('total length of ind val data: {}'.format(len(ind_val_df.index)))
+
+        ind_train_df['target'] = ind_train_df['status'].apply(lambda x: 0 if x == 0 else 2)
+        ind_val_df['target'] = ind_val_df['status'].apply(lambda x: 0 if x == 0 else 2)
+
+        x_ind_train = self.regular_encode(ind_train_df.text.values.tolist(), self.parameters['sentence_maxlen'])
+        x_ind_val = self.regular_encode(ind_val_df.text.values.tolist(), self.parameters['sentence_maxlen'])
+        y_ind_train = ind_train_df.target.values
+        y_ind_val = ind_val_df.target.values
+
+        del ind_train_df, ind_val_df
+
+        x_train = np.concatenate((x_train, x_eng_train, x_thai_train, x_vi_train, x_ind_train), axis=0)
+        x_val = np.concatenate((x_val, x_eng_val, x_thai_val, x_vi_val, x_ind_val), axis=0)
+        y_train = np.concatenate((y_train, y_eng_train, y_thai_train, y_vi_train, y_ind_train), axis=0)
+        y_val = np.concatenate((y_val, y_eng_val, y_thai_val, y_vi_val, y_ind_val), axis=0)
 
         BATCH_SIZE = self.parameters['batch_size']
 
@@ -943,10 +967,29 @@ class ChineseNicknameModel(BaseModel):
 
         del vi_train_df, vi_val_df
 
-        x_train = np.concatenate((x_train, x_eng_train, x_thai_train, x_vi_train), axis=0)
-        x_val = np.concatenate((x_val, x_eng_val, x_thai_val, x_vi_val), axis=0)
-        y_train = np.concatenate((y_train, y_eng_train, y_thai_train, y_vi_train), axis=0)
-        y_val = np.concatenate((y_val, y_eng_val, y_thai_val, y_vi_val), axis=0)
+        # Indonesian data
+        logging.info('reading indonesian training data...')
+        ind_train_df = pd.read_csv(os.path.join(IND_TRAIN_DATA_PATH, 'ind_train.csv'))
+        ind_val_df = pd.read_csv(os.path.join(IND_TRAIN_DATA_PATH, 'ind_val.csv'))
+        ind_train_df = ind_train_df.dropna()
+        ind_val_df = ind_val_df.dropna()
+        ind_train_df = ind_train_df[ind_train_df['text'].astype(bool)] # remove rows containing empty string
+        ind_train_df = ind_train_df.drop_duplicates(subset=['text'])
+        logging.info('total length of ind training data: {}'.format(len(ind_train_df.index)))
+        ind_val_df = ind_val_df[ind_val_df['text'].astype(bool)] # remove rows containing empty string
+        ind_val_df = ind_val_df.drop_duplicates(subset=['text'])
+        logging.info('total length of ind val data: {}'.format(len(ind_val_df.index)))
+        x_ind_train = self.regular_encode(ind_train_df.text.values.tolist(), self.parameters['sentence_maxlen'])
+        x_ind_val = self.regular_encode(ind_val_df.text.values.tolist(), self.parameters['sentence_maxlen'])
+        y_ind_train = ind_train_df.status.values
+        y_ind_val = ind_val_df.status.values
+
+        del ind_train_df, ind_val_df
+
+        x_train = np.concatenate((x_train, x_eng_train, x_thai_train, x_vi_train, x_ind_train), axis=0)
+        x_val = np.concatenate((x_val, x_eng_val, x_thai_val, x_vi_val, x_ind_val), axis=0)
+        y_train = np.concatenate((y_train, y_eng_train, y_thai_train, y_vi_train, y_ind_train), axis=0)
+        y_val = np.concatenate((y_val, y_eng_val, y_thai_val, y_vi_val, y_ind_val), axis=0)
 
         BATCH_SIZE = self.parameters['batch_size']
 
